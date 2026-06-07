@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.lerp
+import com.expensetracker.app.ui.theme.DarkSurface
 import com.expensetracker.app.ui.components.CalendarView
 import com.expensetracker.app.ui.components.DailyExpense
 
@@ -215,70 +217,115 @@ private fun BalanceCard(currency: Currency) {
 
 @Composable
 private fun RecentTransactionsHeader() {
-    Text(
-        text = "Recent Transactions",
-        fontSize = 18.sp,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurface,
-    )
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Recent Transactions",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = "See All",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF7C3AED),
+        )
+    }
+}
+
+private fun categoryColor(category: String): Color = when (category) {
+    "Work", "Salary" -> Color(0xFF4CAF50)
+    "Food" -> Color(0xFFFF9800)
+    "Entertainment" -> Color(0xFFE91E63)
+    "Transport" -> Color(0xFF2196F3)
+    else -> Color(0xFF9C27B0)
+}
+
+private fun categoryIcon(category: String): String = when (category) {
+    "Work" -> "\uD83D\uDCBC"
+    "Salary" -> "\uD83D\uDCB0"
+    "Food" -> "\uD83D\uDED2"
+    "Entertainment" -> "\uD83C\uDFAC"
+    "Transport" -> "\uD83D\uDE97"
+    else -> "\uD83D\uDCB3"
 }
 
 @Composable
 private fun TransactionItem(transaction: Transaction, currency: Currency) {
+    val catColor = categoryColor(transaction.category)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = lerp(DarkSurface, catColor, 0.12f),
         ),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Spacer(Modifier.width(14.dp))
+
             Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(
-                        color = if (transaction.isIncome)
-                            Color(0xFF1B5E20) else Color(0xFFB71C1C),
-                        shape = CircleShape,
-                    ),
+                modifier = Modifier.size(42.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = if (transaction.isIncome) "↓" else "↑",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                )
+                Text(text = categoryIcon(transaction.category), fontSize = 18.sp)
             }
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = transaction.title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = transaction.category,
+                        fontSize = 12.sp,
+                        color = catColor,
+                    )
+                    Text(
+                        text = " · ",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                    )
+                    Text(
+                        text = transaction.date,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    )
+                }
+            }
+
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "${transaction.category} · ${transaction.date}",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    text = if (transaction.isIncome) "+${formatAmount(transaction.amount, currency)}"
+                    else "-${formatAmount(transaction.amount, currency)}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (transaction.isIncome) Color(0xFF4CAF50)
+                    else Color(0xFFE91E63),
+                )
+                Text(
+                    text = if (transaction.isIncome) "Income" else "Expense",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
                 )
             }
 
-            Text(
-                text = if (transaction.isIncome) "+${formatAmount(transaction.amount, currency)}"
-                else "-${formatAmount(transaction.amount, currency)}",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (transaction.isIncome) Color(0xFF4CAF50)
-                else Color(0xFFE91E63),
-            )
+            Spacer(Modifier.width(16.dp))
         }
     }
 }
