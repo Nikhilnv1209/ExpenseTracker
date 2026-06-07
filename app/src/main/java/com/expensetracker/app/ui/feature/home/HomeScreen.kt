@@ -1,6 +1,7 @@
 package com.expensetracker.app.ui.feature.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,10 +20,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,6 +38,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.expensetracker.app.ui.components.CalendarView
 import com.expensetracker.app.ui.components.DailyExpense
+
+data class Currency(
+    val symbol: String,
+    val code: String,
+    val name: String,
+)
+
+val currencies = listOf(
+    Currency("$", "USD", "US Dollar"),
+    Currency("\u20B9", "INR", "Indian Rupee"),
+    Currency("\u00A3", "GBP", "British Pound"),
+    Currency("\u20AC", "EUR", "Euro"),
+    Currency("\u00A5", "JPY", "Japanese Yen"),
+    Currency("A$", "AUD", "Australian Dollar"),
+    Currency("C$", "CAD", "Canadian Dollar"),
+)
+
+fun formatAmount(amount: Double, currency: Currency): String {
+    val sym = currency.symbol
+    if (currency.code == "JPY") return "$sym${amount.toInt()}"
+    return "$sym${String.format("%.2f", amount)}"
+}
 
 data class Transaction(
     val id: String,
@@ -82,8 +111,25 @@ private val sampleDailyExpenses = listOf(
     DailyExpense(30, 40.00),
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen() {
+    var selectedCurrency by remember { mutableStateOf(currencies[0]) }
+    var showSettings by remember { mutableStateOf(false) }
+
+    if (showSettings) {
+        ModalBottomSheet(
+            onDismissRequest = { showSettings = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            CurrencyPickerSheet(
+                current = selectedCurrency,
+                onSelect = { selectedCurrency = it; showSettings = false },
+            )
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -92,119 +138,76 @@ fun HomeScreen() {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { Spacer(modifier = Modifier.height(8.dp)) }
-        item { GreetingHeader() }
-        item { BalanceCard() }
-        item { IncomeExpenseRow() }
+        item { GreetingHeader(onSettingsClick = { showSettings = true }) }
+        item { BalanceCard(selectedCurrency) }
         item { CalendarView(dailyExpenses = sampleDailyExpenses) }
         item { RecentTransactionsHeader() }
         items(sampleTransactions) { transaction ->
-            TransactionItem(transaction)
+            TransactionItem(transaction, selectedCurrency)
         }
         item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }
 
 @Composable
-private fun GreetingHeader() {
-    Column {
+private fun GreetingHeader(onSettingsClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column {
+            Text(
+                text = "Good Morning \uD83C\uDF24\uFE0F",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "Welcome Back",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
         Text(
-            text = "Good Morning \uD83C\uDF24\uFE0F",
-            fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = "Welcome Back",
+            text = "\u22EE",
             fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier
+                .clickable(onClick = onSettingsClick)
+                .padding(4.dp),
         )
     }
 }
 
 @Composable
-private fun BalanceCard() {
+private fun BalanceCard(currency: Currency) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(28.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary,
+            containerColor = Color(0xFF7C3AED),
         ),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text = "Total Balance",
                 fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                color = Color.White.copy(alpha = 0.7f),
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "$12,450.00",
-                fontSize = 36.sp,
+                text = formatAmount(12450.00, currency),
+                fontSize = 40.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimary,
-            )
-        }
-    }
-}
-
-@Composable
-private fun IncomeExpenseRow() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        StatCard(
-            modifier = Modifier.weight(1f),
-            label = "Income",
-            amount = "$7,400.00",
-            color = Color(0xFF4CAF50),
-        )
-        StatCard(
-            modifier = Modifier.weight(1f),
-            label = "Expense",
-            amount = "$3,245.50",
-            color = Color(0xFFE91E63),
-        )
-    }
-}
-
-@Composable
-private fun StatCard(
-    modifier: Modifier = Modifier,
-    label: String,
-    amount: String,
-    color: Color,
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-        ) {
-            Text(
-                text = label,
-                fontSize = 14.sp,
-                color = color,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = amount,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = Color.White,
             )
         }
     }
@@ -221,7 +224,7 @@ private fun RecentTransactionsHeader() {
 }
 
 @Composable
-private fun TransactionItem(transaction: Transaction) {
+private fun TransactionItem(transaction: Transaction, currency: Currency) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -269,16 +272,65 @@ private fun TransactionItem(transaction: Transaction) {
             }
 
             Text(
-                text = if (transaction.isIncome) "+$${
-                    String.format("%.2f", transaction.amount)
-                }" else "-$${
-                    String.format("%.2f", transaction.amount)
-                }",
+                text = if (transaction.isIncome) "+${formatAmount(transaction.amount, currency)}"
+                else "-${formatAmount(transaction.amount, currency)}",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = if (transaction.isIncome) Color(0xFF4CAF50)
                 else Color(0xFFE91E63),
             )
         }
+    }
+}
+
+@Composable
+private fun CurrencyPickerSheet(current: Currency, onSelect: (Currency) -> Unit) {
+    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
+        Text(
+            text = "Select Currency",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        currencies.forEach { currency ->
+            val isSelected = currency.code == current.code
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelect(currency) }
+                    .padding(vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = currency.symbol,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelected) Color(0xFF7C3AED) else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.width(48.dp),
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = currency.code,
+                        fontSize = 16.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = currency.name,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    )
+                }
+                if (isSelected) {
+                    Text(
+                        text = "\u2713",
+                        fontSize = 18.sp,
+                        color = Color(0xFF7C3AED),
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
