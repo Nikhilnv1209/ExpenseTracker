@@ -44,3 +44,7 @@ build/
 *.p12
 load_dependencies.gradle
 
+# Local dev
+plans/
+app/src/test/
+
