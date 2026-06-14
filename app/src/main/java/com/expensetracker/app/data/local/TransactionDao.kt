@@ -70,6 +70,14 @@ interface TransactionDao {
     """)
     suspend fun getDailyExpenseTotals(startDate: Long, endDate: Long): List<DailyTotal>
 
+    @Query("""
+        SELECT date, COALESCE(SUM(amount), 0.0) as total FROM transactions 
+        WHERE type = 'INCOME' AND isExcluded = 0 AND date >= :startDate AND date <= :endDate
+        GROUP BY date
+        ORDER BY date ASC
+    """)
+    suspend fun getDailyIncomeTotals(startDate: Long, endDate: Long): List<DailyTotal>
+
     @Query("UPDATE transactions SET isExcluded = :excluded WHERE id = :id")
     suspend fun setExcluded(id: Long, excluded: Boolean)
 
