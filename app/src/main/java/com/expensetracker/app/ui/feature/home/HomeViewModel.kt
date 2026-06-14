@@ -2,6 +2,7 @@ package com.expensetracker.app.ui.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.expensetracker.app.data.local.AliasDao
 import com.expensetracker.app.data.local.TransactionDao
 import com.expensetracker.app.data.local.toDomain
 import com.expensetracker.app.data.local.toEntity
@@ -21,6 +22,7 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val transactionDao: TransactionDao,
+    private val aliasDao: AliasDao,
     private val smsImportUseCase: SmsImportUseCase,
     private val smsExportUseCase: com.expensetracker.app.sms.SmsExportUseCase,
 ) : ViewModel() {
@@ -101,6 +103,25 @@ class HomeViewModel @Inject constructor(
                 "No bank SMS found to export"
             }
             onResult(message)
+        }
+    }
+
+    fun toggleExcluded(transactionId: Long, excluded: Boolean) {
+        viewModelScope.launch {
+            transactionDao.setExcluded(transactionId, excluded)
+            loadTransactions()
+        }
+    }
+
+    fun setAlias(transactionId: Long, originalTitle: String, alias: String?) {
+        viewModelScope.launch {
+            if (alias != null) {
+                aliasDao.upsert(com.expensetracker.app.data.local.AliasEntity(originalTitle, alias))
+            } else {
+                aliasDao.delete(originalTitle)
+            }
+            transactionDao.applyAliasToAll(originalTitle, alias)
+            loadTransactions()
         }
     }
 }

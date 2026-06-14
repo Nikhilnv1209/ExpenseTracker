@@ -71,7 +71,18 @@ fun TransactionListScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surface,
         ) {
-            TransactionDetailSheet(transaction = txn, currency = currency)
+            TransactionDetailSheet(
+                transaction = txn,
+                currency = currency,
+                onToggleExcluded = { excluded ->
+                    viewModel.toggleExcluded(txn.id, excluded)
+                    selectedTransaction = null
+                },
+                onSetAlias = { alias ->
+                    viewModel.setAlias(txn.id, txn.title, alias)
+                    selectedTransaction = null
+                },
+            )
         }
     }
 
@@ -201,7 +212,7 @@ private fun TransactionListItem(transaction: Transaction, currency: com.expenset
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = transaction.title,
+                    text = transaction.alias ?: transaction.title,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,

@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.expensetracker.app.ui.feature.aliases.AliasesScreen
+import com.expensetracker.app.ui.feature.excluded.ExcludedTransactionsScreen
 import com.expensetracker.app.ui.feature.home.HomeScreen
 import com.expensetracker.app.ui.feature.transactionlist.TransactionListScreen
 import com.expensetracker.app.ui.theme.ExpenseTrackerTheme
@@ -33,10 +35,20 @@ class MainActivity : ComponentActivity() {
                         startDestination = "home",
                     ) {
                         composable("home") {
-                            HomeScreen(onSeeAll = { navController.navigate("transactions") })
+                            HomeScreen(
+                                onSeeAll = { navController.navigate("transactions") },
+                                onViewExcluded = { navController.navigate("excluded") },
+                                onManageAliases = { navController.navigate("aliases") },
+                            )
                         }
                         composable("transactions") {
                             TransactionListScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable("excluded") {
+                            ExcludedTransactionsScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable("aliases") {
+                            AliasesScreen(onBack = { navController.popBackStack() })
                         }
                     }
                 }

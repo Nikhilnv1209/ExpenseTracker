@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.DirectionsCar
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.LocalDining
 import androidx.compose.material.icons.rounded.MedicalServices
 import androidx.compose.material.icons.rounded.MoreHoriz
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Theaters
+import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -99,6 +101,8 @@ fun formatAmount(amount: Double, currency: Currency): String {
 @Composable
 fun HomeScreen(
     onSeeAll: () -> Unit = {},
+    onViewExcluded: () -> Unit = {},
+    onManageAliases: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -127,6 +131,14 @@ fun HomeScreen(
             SettingsSheet(
                 current = selectedCurrency,
                 onSelectCurrency = { selectedCurrency = it; showSettings = false },
+                onViewExcluded = {
+                    showSettings = false
+                    onViewExcluded()
+                },
+                onManageAliases = {
+                    showSettings = false
+                    onManageAliases()
+                },
                 onImportSms = {
                     showSettings = false
                     when (PackageManager.PERMISSION_GRANTED) {
@@ -172,7 +184,18 @@ fun HomeScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surface,
         ) {
-            TransactionDetailSheet(transaction = txn, currency = selectedCurrency)
+            TransactionDetailSheet(
+                transaction = txn,
+                currency = selectedCurrency,
+                onToggleExcluded = { excluded ->
+                    viewModel.toggleExcluded(txn.id, excluded)
+                    selectedTransaction = null
+                },
+                onSetAlias = { alias ->
+                    viewModel.setAlias(txn.id, txn.title, alias)
+                    selectedTransaction = null
+                },
+            )
         }
     }
 
@@ -459,7 +482,7 @@ private fun TransactionItem(transaction: Transaction, currency: Currency, onClic
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = transaction.title,
+                    text = transaction.alias ?: transaction.title,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -509,6 +532,8 @@ private fun TransactionItem(transaction: Transaction, currency: Currency, onClic
 private fun SettingsSheet(
     current: Currency,
     onSelectCurrency: (Currency) -> Unit,
+    onViewExcluded: () -> Unit,
+    onManageAliases: () -> Unit,
     onImportSms: () -> Unit,
     onExportSms: () -> Unit,
 ) {
@@ -544,6 +569,20 @@ private fun SettingsSheet(
             title = "Currency",
             subtitle = "${current.name} (${current.code})",
             onClick = { showCurrencyPicker = true },
+        )
+
+        SettingsRow(
+            icon = Icons.Rounded.Undo,
+            title = "Excluded Transactions",
+            subtitle = "View and restore excluded items",
+            onClick = onViewExcluded,
+        )
+
+        SettingsRow(
+            icon = Icons.Rounded.Edit,
+            title = "Manage Aliases",
+            subtitle = "Rename and organize transaction titles",
+            onClick = onManageAliases,
         )
 
         Spacer(modifier = Modifier.height(8.dp))

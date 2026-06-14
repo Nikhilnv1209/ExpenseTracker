@@ -38,4 +38,6 @@ data class Transaction(
     val accountLast4: String? = null,
     val rawSms: String? = null,
     val smsDate: Long? = null,
+    val isExcluded: Boolean = false,
+    val alias: String? = null,
 )

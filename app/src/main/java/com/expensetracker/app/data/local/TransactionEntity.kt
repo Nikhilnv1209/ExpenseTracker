@@ -21,6 +21,8 @@ data class TransactionEntity(
     val accountLast4: String? = null,
     val rawSms: String? = null,
     val smsDate: Long? = null,
+    val isExcluded: Boolean = false,
+    val alias: String? = null,
 )
 
 fun TransactionEntity.toDomain(): Transaction = Transaction(
@@ -35,6 +37,8 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     accountLast4 = accountLast4,
     rawSms = rawSms,
     smsDate = smsDate,
+    isExcluded = isExcluded,
+    alias = alias,
 )
 
 fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
@@ -49,4 +53,6 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     accountLast4 = accountLast4,
     rawSms = rawSms,
     smsDate = smsDate,
+    isExcluded = isExcluded,
+    alias = alias,
 )

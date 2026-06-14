@@ -2,6 +2,7 @@ package com.expensetracker.app.ui.feature.transactionlist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.expensetracker.app.data.local.AliasDao
 import com.expensetracker.app.data.local.TransactionDao
 import com.expensetracker.app.data.local.toDomain
 import com.expensetracker.app.domain.model.Transaction
@@ -23,6 +24,7 @@ data class TransactionListUiState(
 @HiltViewModel
 class TransactionListViewModel @Inject constructor(
     private val transactionDao: TransactionDao,
+    private val aliasDao: AliasDao,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TransactionListUiState())
@@ -46,6 +48,25 @@ class TransactionListViewModel @Inject constructor(
                     totalExpense = expenseTotal,
                 )
             }
+        }
+    }
+
+    fun toggleExcluded(transactionId: Long, excluded: Boolean) {
+        viewModelScope.launch {
+            transactionDao.setExcluded(transactionId, excluded)
+            loadAll()
+        }
+    }
+
+    fun setAlias(transactionId: Long, originalTitle: String, alias: String?) {
+        viewModelScope.launch {
+            if (alias != null) {
+                aliasDao.upsert(com.expensetracker.app.data.local.AliasEntity(originalTitle, alias))
+            } else {
+                aliasDao.delete(originalTitle)
+            }
+            transactionDao.applyAliasToAll(originalTitle, alias)
+            loadAll()
         }
     }
 }
