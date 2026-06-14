@@ -1,6 +1,7 @@
 package com.expensetracker.app.di
 
 import android.content.Context
+import com.expensetracker.app.data.local.AliasDao
 import com.expensetracker.app.data.local.AppDatabase
 import com.expensetracker.app.data.local.TransactionDao
 import dagger.Module
@@ -24,5 +25,11 @@ object DatabaseModule {
     @Singleton
     fun provideTransactionDao(database: AppDatabase): TransactionDao {
         return database.transactionDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideAliasDao(database: AppDatabase): AliasDao {
+        return database.aliasDao()
     }
 }

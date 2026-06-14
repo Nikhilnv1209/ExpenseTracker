@@ -1,6 +1,7 @@
 package com.expensetracker.app.sms
 
 import android.util.Log
+import com.expensetracker.app.data.local.AliasDao
 import com.expensetracker.app.data.local.TransactionDao
 import com.expensetracker.app.data.local.toEntity
 import com.expensetracker.app.domain.model.Category
@@ -13,12 +14,15 @@ import javax.inject.Singleton
 class SmsImportUseCase @Inject constructor(
     private val smsReader: SmsReader,
     private val transactionDao: TransactionDao,
+    private val aliasDao: AliasDao,
 ) {
 
     suspend fun importTransactions(): SmsImportResult {
         Log.d("SmsImportUseCase", "Starting SMS import...")
         val messages = smsReader.readAllBankSms(limit = 500)
         Log.d("SmsImportUseCase", "Found ${messages.size} bank SMS messages")
+
+        val aliases = aliasDao.getAll().associate { it.originalTitle to it.alias }
 
         val parsed = messages.mapNotNull { BankSmsParser.parse(it) }
         Log.d("SmsImportUseCase", "Parsed ${parsed.size} transactions")
@@ -28,6 +32,7 @@ class SmsImportUseCase @Inject constructor(
 
         parsed.forEach { parsedTx ->
             val existing = parsedTx.smsDate?.let { transactionDao.findBySmsDate(it) }
+            val resolvedAlias = aliases[parsedTx.description]
             if (existing != null) {
                 val updated = existing.copy(
                     title = parsedTx.description,
@@ -37,6 +42,7 @@ class SmsImportUseCase @Inject constructor(
                     bankName = parsedTx.bankName,
                     accountLast4 = parsedTx.accountLast4,
                     rawSms = parsedTx.rawSms,
+                    alias = resolvedAlias,
                 )
                 transactionDao.update(updated)
                 skipped++
@@ -54,6 +60,7 @@ class SmsImportUseCase @Inject constructor(
                 accountLast4 = parsedTx.accountLast4,
                 rawSms = parsedTx.rawSms,
                 smsDate = parsedTx.smsDate,
+                alias = resolvedAlias,
             )
 
             transactionDao.insert(transaction.toEntity())
