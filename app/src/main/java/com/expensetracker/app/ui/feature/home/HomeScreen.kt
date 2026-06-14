@@ -67,6 +67,7 @@ import com.expensetracker.app.domain.model.Transaction
 import com.expensetracker.app.ui.components.CalendarView
 import com.expensetracker.app.ui.components.DailyExpense
 import com.expensetracker.app.ui.components.GlassCard
+import com.expensetracker.app.ui.components.TransactionDetailSheet
 import com.expensetracker.app.ui.theme.Violet400
 import com.expensetracker.app.ui.theme.Violet700
 import java.time.LocalDate
@@ -105,6 +106,7 @@ fun HomeScreen(
 
     var selectedCurrency by remember { mutableStateOf(currencies[1]) }
     var showSettings by remember { mutableStateOf(false) }
+    var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
 
     val smsPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -164,6 +166,16 @@ fun HomeScreen(
         )
     }
 
+    selectedTransaction?.let { txn ->
+        ModalBottomSheet(
+            onDismissRequest = { selectedTransaction = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            TransactionDetailSheet(transaction = txn, currency = selectedCurrency)
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -191,7 +203,7 @@ fun HomeScreen(
         }
 
         items(uiState.transactions) { transaction ->
-            TransactionItem(transaction, selectedCurrency)
+            TransactionItem(transaction, selectedCurrency, onClick = { selectedTransaction = transaction })
         }
 
         if (uiState.importResult != null) {
@@ -406,11 +418,13 @@ internal fun categoryIcon(category: Category): ImageVector = when (category) {
 private val dateFormatter = DateTimeFormatter.ofPattern("MMM d")
 
 @Composable
-private fun TransactionItem(transaction: Transaction, currency: Currency) {
+private fun TransactionItem(transaction: Transaction, currency: Currency, onClick: () -> Unit = {}) {
     val catColor = categoryColor(transaction.category)
 
     GlassCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         tint = catColor,
         tintAlpha = 0.08f,

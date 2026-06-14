@@ -1,6 +1,7 @@
 package com.expensetracker.app.ui.feature.transactionlist
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,12 +23,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,6 +44,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.expensetracker.app.domain.model.Category
 import com.expensetracker.app.domain.model.Transaction
 import com.expensetracker.app.ui.components.GlassCard
+import com.expensetracker.app.ui.components.TransactionDetailSheet
 import com.expensetracker.app.ui.feature.home.categoryColor
 import com.expensetracker.app.ui.feature.home.categoryIcon
 import com.expensetracker.app.ui.feature.home.currencies
@@ -56,6 +63,17 @@ fun TransactionListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val currency = currencies[1]
+    var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
+
+    selectedTransaction?.let { txn ->
+        ModalBottomSheet(
+            onDismissRequest = { selectedTransaction = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            TransactionDetailSheet(transaction = txn, currency = currency)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -131,7 +149,7 @@ fun TransactionListScreen(
                             )
                         }
                         lastDate = transaction.date
-                        TransactionListItem(transaction, currency)
+                        TransactionListItem(transaction, currency, onClick = { selectedTransaction = transaction })
                     }
                 }
 
@@ -142,11 +160,13 @@ fun TransactionListScreen(
 }
 
 @Composable
-private fun TransactionListItem(transaction: Transaction, currency: com.expensetracker.app.ui.feature.home.Currency) {
+private fun TransactionListItem(transaction: Transaction, currency: com.expensetracker.app.ui.feature.home.Currency, onClick: () -> Unit = {}) {
     val catColor = categoryColor(transaction.category)
 
     GlassCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         tint = catColor,
         tintAlpha = 0.08f,
