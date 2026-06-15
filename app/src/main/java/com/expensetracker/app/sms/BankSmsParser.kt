@@ -691,11 +691,20 @@ object BankSmsParser {
 
         for ((category, keywords) in categoryKeywords) {
             if (category == Category.SALARY) continue
-            if (keywords.any { body.contains(it.uppercase(Locale.ENGLISH)) }) {
+            if (keywords.any { keyword -> bodyMatchesKeyword(body.uppercase(Locale.ENGLISH), keyword) }) {
                 return category
             }
         }
         return Category.OTHER
+    }
+
+    private fun bodyMatchesKeyword(bodyUpper: String, keyword: String): Boolean {
+        val keywordUpper = keyword.uppercase(Locale.ENGLISH)
+        // Special-case "hospital" so "hospitality" / "hospitali..." is not treated as a hospital charge.
+        if (keywordUpper == "HOSPITAL") {
+            return bodyUpper.contains(Regex("HOSPITAL(?!I)"))
+        }
+        return bodyUpper.contains(keywordUpper)
     }
 
     private fun dateRegexFor(formatter: DateTimeFormatter): Pattern {

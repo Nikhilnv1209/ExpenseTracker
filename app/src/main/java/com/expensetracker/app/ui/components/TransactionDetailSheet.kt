@@ -181,16 +181,20 @@ fun TransactionDetailSheet(
                     Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (transaction.alias != null) "Alias: ${transaction.alias}" else "Set Alias",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF7C3AED),
-                        )
-                        Text(
-                            text = if (transaction.alias != null) "Tap to edit or remove" else "Applies to all matching transactions",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        )
+                        text = if (transaction.alias != null) "Alias: ${transaction.alias}" else "Set Alias",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF7C3AED),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = if (transaction.alias != null) "Tap to edit or remove" else "Applies to all matching transactions",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
                     }
                 }
             }
@@ -254,11 +258,15 @@ fun TransactionDetailSheet(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (transaction.isExcluded) Color(0xFFFF9800) else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                     Text(
                         text = if (transaction.isExcluded) "Tap to include this transaction" else "Excluded transactions won't affect balance",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                 }
             }

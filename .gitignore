@@ -47,4 +47,5 @@ load_dependencies.gradle
 # Local dev
 plans/
 app/src/test/
+keystore.properties
 
