@@ -1,5 +1,6 @@
 package com.expensetracker.app.ui.feature.home
 
+import androidx.activity.compose.BackHandler
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -27,27 +28,30 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Brightness3
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.LocalDining
 import androidx.compose.material.icons.rounded.MedicalServices
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Nightlight
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Receipt
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Theaters
 import androidx.compose.material.icons.rounded.Undo
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -72,6 +76,7 @@ import com.expensetracker.app.domain.model.Transaction
 import com.expensetracker.app.ui.components.CalendarView
 import com.expensetracker.app.ui.components.DailyExpense
 import com.expensetracker.app.ui.components.GlassCard
+import com.expensetracker.app.ui.components.LiquidGlassLayout
 import com.expensetracker.app.ui.components.TransactionDetailSheet
 import com.expensetracker.app.ui.theme.Violet400
 import com.expensetracker.app.ui.theme.Violet700
@@ -125,12 +130,63 @@ fun HomeScreen(
 
     var exportMessage by remember { mutableStateOf<String?>(null) }
 
-    if (showSettings) {
-        ModalBottomSheet(
-            onDismissRequest = { showSettings = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surface,
-        ) {
+    val isSheetOpen = showSettings || selectedTransaction != null
+    BackHandler(enabled = isSheetOpen) {
+        showSettings = false
+        selectedTransaction = null
+    }
+
+    LiquidGlassLayout(
+        isSheetOpen = isSheetOpen,
+        onDismiss = {
+            showSettings = false
+            selectedTransaction = null
+        },
+        mainContent = {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+                item { GreetingHeader(onSettingsClick = { showSettings = true }) }
+                item { BalanceCard(selectedCurrency, uiState) }
+                item { CalendarView(dailyExpenses = uiState.dailyExpenses) }
+                item { RecentTransactionsHeader(onSeeAll = onSeeAll) }
+
+                if (uiState.isLoading) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFF7C3AED))
+                        }
+                    }
+                }
+
+                items(uiState.transactions) { transaction ->
+                    TransactionItem(transaction, selectedCurrency, onClick = { selectedTransaction = transaction })
+                }
+
+                if (uiState.importResult != null) {
+                    item {
+                        ImportResultCard(
+                            result = uiState.importResult!!,
+                            onDismiss = viewModel::clearImportResult,
+                        )
+                    }
+                }
+
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+            }
+        },
+    ) {
+        if (showSettings) {
             SettingsSheet(
                 current = selectedCurrency,
                 onSelectCurrency = { selectedCurrency = it; showSettings = false },
@@ -166,27 +222,8 @@ fun HomeScreen(
                 },
             )
         }
-    }
 
-    exportMessage?.let { message ->
-        AlertDialog(
-            onDismissRequest = { exportMessage = null },
-            confirmButton = {
-                TextButton(onClick = { exportMessage = null }) {
-                    Text("OK")
-                }
-            },
-            title = { Text("Export SMS") },
-            text = { Text(message) },
-        )
-    }
-
-    selectedTransaction?.let { txn ->
-        ModalBottomSheet(
-            onDismissRequest = { selectedTransaction = null },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surface,
-        ) {
+        selectedTransaction?.let { txn ->
             TransactionDetailSheet(
                 transaction = txn,
                 currency = selectedCurrency,
@@ -202,62 +239,50 @@ fun HomeScreen(
         }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item { Spacer(modifier = Modifier.height(8.dp)) }
-        item { GreetingHeader(onSettingsClick = { showSettings = true }) }
-        item { BalanceCard(selectedCurrency, uiState) }
-        item { CalendarView(dailyExpenses = uiState.dailyExpenses) }
-        item { RecentTransactionsHeader(onSeeAll = onSeeAll) }
-
-        if (uiState.isLoading) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(color = Color(0xFF7C3AED))
+    exportMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { exportMessage = null },
+            confirmButton = {
+                TextButton(onClick = { exportMessage = null }) {
+                    Text("OK")
                 }
-            }
-        }
-
-        items(uiState.transactions) { transaction ->
-            TransactionItem(transaction, selectedCurrency, onClick = { selectedTransaction = transaction })
-        }
-
-        if (uiState.importResult != null) {
-            item {
-                ImportResultCard(
-                    result = uiState.importResult!!,
-                    onDismiss = viewModel::clearImportResult,
-                )
-            }
-        }
-
-        item { Spacer(modifier = Modifier.height(16.dp)) }
+            },
+            title = { Text("Export SMS") },
+            text = { Text(message) },
+        )
     }
 }
 
 @Composable
 private fun GreetingHeader(onSettingsClick: () -> Unit) {
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    val (greeting, icon) = when (hour) {
+        in 5..11 -> "Good Morning" to Icons.Rounded.WbSunny
+        in 12..16 -> "Good Afternoon" to Icons.Rounded.LightMode
+        in 17..20 -> "Good Evening" to Icons.Rounded.Brightness3
+        else -> "Good Night" to Icons.Rounded.Nightlight
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Column {
-            Text(
-                text = "Good Morning \uD83C\uDF24\uFE0F",
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = greeting,
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                )
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                )
+            }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "Welcome Back",
@@ -266,14 +291,27 @@ private fun GreetingHeader(onSettingsClick: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
-        Text(
-            text = "\u22EE",
-            fontSize = 24.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        Box(
             modifier = Modifier
-                .clickable(onClick = onSettingsClick)
-                .padding(4.dp),
-        )
+                .size(40.dp)
+                .background(
+                    color = Color(0xFF7C3AED).copy(alpha = 0.1f),
+                    shape = CircleShape,
+                )
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onSettingsClick,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Settings,
+                contentDescription = "Settings",
+                modifier = Modifier.size(20.dp),
+                tint = Color(0xFF7C3AED),
+            )
+        }
     }
 }
 
@@ -589,21 +627,34 @@ private fun SettingsSheet(
     var showCurrencyPicker by remember { mutableStateOf(false) }
 
     if (showCurrencyPicker) {
-        ModalBottomSheet(
-            onDismissRequest = { showCurrencyPicker = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surface,
-        ) {
-            CurrencyPickerSheet(
-                current = current,
-                onSelect = {
-                    onSelectCurrency(it)
-                    showCurrencyPicker = false
-                },
-            )
-        }
+        CurrencyPickerSheet(
+            current = current,
+            onSelect = {
+                onSelectCurrency(it)
+                showCurrencyPicker = false
+            },
+        )
+    } else {
+        SettingsContent(
+            current = current,
+            onShowCurrencyPicker = { showCurrencyPicker = true },
+            onViewExcluded = onViewExcluded,
+            onManageAliases = onManageAliases,
+            onImportSms = onImportSms,
+            onExportSms = onExportSms,
+        )
     }
+}
 
+@Composable
+private fun SettingsContent(
+    current: Currency,
+    onShowCurrencyPicker: () -> Unit,
+    onViewExcluded: () -> Unit,
+    onManageAliases: () -> Unit,
+    onImportSms: () -> Unit,
+    onExportSms: () -> Unit,
+) {
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
         Text(
             text = "Settings",
@@ -617,7 +668,7 @@ private fun SettingsSheet(
             icon = Icons.Rounded.AccountBalanceWallet,
             title = "Currency",
             subtitle = "${current.name} (${current.code})",
-            onClick = { showCurrencyPicker = true },
+            onClick = onShowCurrencyPicker,
         )
 
         SettingsRow(
