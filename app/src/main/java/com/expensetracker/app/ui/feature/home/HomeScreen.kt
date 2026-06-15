@@ -4,8 +4,11 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -276,53 +279,99 @@ private fun GreetingHeader(onSettingsClick: () -> Unit) {
 
 @Composable
 private fun BalanceCard(currency: Currency, uiState: HomeUiState) {
+    var mode by remember { mutableStateOf(0) }
+
+    val gradientColors = when (mode) {
+        0 -> listOf(Color(0xFF1E1B2E), Color(0xFF2D2640))
+        1 -> listOf(Color(0xFF1A2332), Color(0xFF1B3A2F))
+        else -> listOf(Color(0xFF2A1F1A), Color(0xFF3D2A1F))
+    }
+
+    val animColor1 by animateColorAsState(gradientColors[0], tween(400))
+    val animColor2 by animateColorAsState(gradientColors[1], tween(400))
+
+    val label = when (mode) {
+        0 -> "Total Balance"
+        1 -> "Total Income"
+        else -> "Total Expense"
+    }
+    val amount = when (mode) {
+        0 -> uiState.totalBalance
+        1 -> uiState.totalIncome
+        else -> uiState.totalExpense
+    }
+    val amountColor = when (mode) {
+        0 -> Color.White
+        1 -> Color(0xFF81C784)
+        else -> Color(0xFFFFAB91)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(24.dp))
             .background(
                 Brush.linearGradient(
-                    listOf(Violet400, Violet700),
+                    listOf(animColor1, animColor2),
                     start = Offset.Zero,
-                    end = Offset(1000f, 1000f),
+                    end = Offset(800f, 1200f),
                 )
             )
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = 0.08f), Color.Transparent)
-                )
-            ),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { mode = (mode + 1) % 3 },
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(0.5.dp)
-                .background(Color.White.copy(alpha = 0.3f))
+                .background(Color.White.copy(alpha = 0.15f))
         )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 20.dp),
         ) {
             Text(
-                text = "Total Balance",
-                fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.7f),
+                text = label,
+                fontSize = 13.sp,
+                color = Color.White.copy(alpha = 0.5f),
+                letterSpacing = 0.5.sp,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = formatAmount(uiState.totalBalance, currency),
-                fontSize = 40.sp,
+                text = formatAmount(amount, currency),
+                fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = amountColor,
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                BalanceSubItem("Income", uiState.totalIncome, Color(0xFF4CAF50), currency)
-                BalanceSubItem("Expense", uiState.totalExpense, Color(0xFFE91E63), currency)
+                Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    BalanceSubItem("Income", uiState.totalIncome, Color(0xFF81C784), currency)
+                    BalanceSubItem("Expense", uiState.totalExpense, Color(0xFFFFAB91), currency)
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    repeat(3) { i ->
+                        Box(
+                            modifier = Modifier
+                                .size(if (i == mode) 7.dp else 5.dp)
+                                .background(
+                                    color = if (i == mode) Color.White.copy(alpha = 0.9f)
+                                    else Color.White.copy(alpha = 0.25f),
+                                    shape = CircleShape,
+                                )
+                        )
+                    }
+                }
             }
         }
     }
@@ -330,17 +379,17 @@ private fun BalanceCard(currency: Currency, uiState: HomeUiState) {
 
 @Composable
 private fun BalanceSubItem(label: String, amount: Double, color: Color, currency: Currency) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column {
         Text(
             text = label,
-            fontSize = 12.sp,
-            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 11.sp,
+            color = Color.White.copy(alpha = 0.45f),
         )
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(1.dp))
         Text(
             text = formatAmount(amount, currency),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
             color = color,
         )
     }
