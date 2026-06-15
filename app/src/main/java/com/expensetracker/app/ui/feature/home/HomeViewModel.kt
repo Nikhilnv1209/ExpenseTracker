@@ -1,5 +1,6 @@
 package com.expensetracker.app.ui.feature.home
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensetracker.app.data.local.AliasDao
@@ -10,6 +11,7 @@ import com.expensetracker.app.domain.model.Transaction
 import com.expensetracker.app.sms.SmsImportResult
 import com.expensetracker.app.sms.SmsImportUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,13 +23,16 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val transactionDao: TransactionDao,
     private val aliasDao: AliasDao,
     private val smsImportUseCase: SmsImportUseCase,
     private val smsExportUseCase: com.expensetracker.app.sms.SmsExportUseCase,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HomeUiState())
+    private val prefs = appContext.getSharedPreferences("expense_tracker_prefs", Context.MODE_PRIVATE)
+
+    private val _uiState = MutableStateFlow(HomeUiState(balanceMode = prefs.getInt("balanceMode", 0)))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var isRefreshing = false
@@ -152,7 +157,9 @@ class HomeViewModel @Inject constructor(
     }
 
     fun cycleBalanceMode() {
-        _uiState.update { it.copy(balanceMode = (it.balanceMode + 1) % 3) }
+        val newMode = (_uiState.value.balanceMode + 1) % 3
+        prefs.edit().putInt("balanceMode", newMode).apply()
+        _uiState.update { it.copy(balanceMode = newMode) }
     }
 }
 
