@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Brightness3
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Edit
@@ -52,6 +53,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -111,6 +113,7 @@ fun HomeScreen(
     onSeeAll: () -> Unit = {},
     onViewExcluded: () -> Unit = {},
     onManageAliases: () -> Unit = {},
+    onIgnoredSenders: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -143,13 +146,18 @@ fun HomeScreen(
             selectedTransaction = null
         },
         mainContent = {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = { viewModel.refresh() },
+                modifier = Modifier.fillMaxSize(),
             ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
                 item { Spacer(modifier = Modifier.height(8.dp)) }
                 item { GreetingHeader(onSettingsClick = { showSettings = true }) }
                 item { BalanceCard(selectedCurrency, uiState) }
@@ -184,6 +192,7 @@ fun HomeScreen(
 
                 item { Spacer(modifier = Modifier.height(16.dp)) }
             }
+            }
         },
     ) {
         if (showSettings) {
@@ -197,6 +206,10 @@ fun HomeScreen(
                 onManageAliases = {
                     showSettings = false
                     onManageAliases()
+                },
+                onIgnoredSenders = {
+                    showSettings = false
+                    onIgnoredSenders()
                 },
                 onImportSms = {
                     showSettings = false
@@ -621,6 +634,7 @@ private fun SettingsSheet(
     onSelectCurrency: (Currency) -> Unit,
     onViewExcluded: () -> Unit,
     onManageAliases: () -> Unit,
+    onIgnoredSenders: () -> Unit,
     onImportSms: () -> Unit,
     onExportSms: () -> Unit,
 ) {
@@ -640,6 +654,7 @@ private fun SettingsSheet(
             onShowCurrencyPicker = { showCurrencyPicker = true },
             onViewExcluded = onViewExcluded,
             onManageAliases = onManageAliases,
+            onIgnoredSenders = onIgnoredSenders,
             onImportSms = onImportSms,
             onExportSms = onExportSms,
         )
@@ -652,6 +667,7 @@ private fun SettingsContent(
     onShowCurrencyPicker: () -> Unit,
     onViewExcluded: () -> Unit,
     onManageAliases: () -> Unit,
+    onIgnoredSenders: () -> Unit,
     onImportSms: () -> Unit,
     onExportSms: () -> Unit,
 ) {
@@ -683,6 +699,13 @@ private fun SettingsContent(
             title = "Manage Aliases",
             subtitle = "Rename and organize transaction titles",
             onClick = onManageAliases,
+        )
+
+        SettingsRow(
+            icon = Icons.Rounded.Block,
+            title = "Ignored Senders",
+            subtitle = "Skip transactions from specific senders",
+            onClick = onIgnoredSenders,
         )
 
         Spacer(modifier = Modifier.height(8.dp))

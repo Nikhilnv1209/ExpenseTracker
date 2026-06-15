@@ -30,12 +30,28 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private var isRefreshing = false
+
     init {
         viewModelScope.launch {
             transactionDao.observeAll().collect { entities ->
                 val transactions = entities.map { it.toDomain() }
                 refreshState(transactions)
             }
+        }
+    }
+
+    fun refresh() {
+        if (isRefreshing) return
+        isRefreshing = true
+        _uiState.update { it.copy(isRefreshing = true) }
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(800)
+            val entities = transactionDao.getAllSorted()
+            val transactions = entities.map { it.toDomain() }
+            refreshState(transactions)
+            _uiState.update { it.copy(isRefreshing = false) }
+            isRefreshing = false
         }
     }
 
@@ -138,6 +154,7 @@ class HomeViewModel @Inject constructor(
 
 data class HomeUiState(
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val transactions: List<Transaction> = emptyList(),
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,

@@ -2,6 +2,7 @@ package com.expensetracker.app.sms
 
 import android.util.Log
 import com.expensetracker.app.data.local.AliasDao
+import com.expensetracker.app.data.local.IgnoredSenderDao
 import com.expensetracker.app.data.local.TransactionDao
 import com.expensetracker.app.data.local.toEntity
 import com.expensetracker.app.domain.model.Category
@@ -15,6 +16,7 @@ class SmsImportUseCase @Inject constructor(
     private val smsReader: SmsReader,
     private val transactionDao: TransactionDao,
     private val aliasDao: AliasDao,
+    private val ignoredSenderDao: IgnoredSenderDao,
 ) {
 
     suspend fun importTransactions(): SmsImportResult {
@@ -23,6 +25,7 @@ class SmsImportUseCase @Inject constructor(
         Log.d("SmsImportUseCase", "Found ${messages.size} bank SMS messages")
 
         val aliases = aliasDao.getAll().associate { it.originalTitle to it.alias }
+        val ignoredSenders = ignoredSenderDao.getAll().map { it.sender.lowercase() }.toSet()
 
         val parsed = messages.mapNotNull { BankSmsParser.parse(it) }
         Log.d("SmsImportUseCase", "Parsed ${parsed.size} transactions")
@@ -31,6 +34,10 @@ class SmsImportUseCase @Inject constructor(
         var skipped = 0
 
         parsed.forEach { parsedTx ->
+            if (parsedTx.description.lowercase() in ignoredSenders) {
+                skipped++
+                return@forEach
+            }
             val existing = parsedTx.smsDate?.let { transactionDao.findBySmsDate(it) }
             val resolvedAlias = aliases[parsedTx.description]
             if (existing != null) {

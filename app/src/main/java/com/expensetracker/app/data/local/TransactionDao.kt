@@ -87,6 +87,12 @@ interface TransactionDao {
     @Query("UPDATE transactions SET alias = :alias WHERE id = :id")
     suspend fun setAlias(id: Long, alias: String?)
 
+    @Query("SELECT DISTINCT title FROM transactions ORDER BY title ASC")
+    suspend fun getUniqueTitles(): List<String>
+
+    @Query("UPDATE transactions SET isExcluded = :excluded WHERE title = :title")
+    suspend fun setExcludedByTitle(title: String, excluded: Boolean)
+
     data class DailyTotal(
         val date: Long,
         val total: Double,

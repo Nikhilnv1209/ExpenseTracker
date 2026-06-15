@@ -3,6 +3,7 @@ package com.expensetracker.app.di
 import android.content.Context
 import com.expensetracker.app.data.local.AliasDao
 import com.expensetracker.app.data.local.AppDatabase
+import com.expensetracker.app.data.local.IgnoredSenderDao
 import com.expensetracker.app.data.local.TransactionDao
 import dagger.Module
 import dagger.Provides
@@ -31,5 +32,11 @@ object DatabaseModule {
     @Singleton
     fun provideAliasDao(database: AppDatabase): AliasDao {
         return database.aliasDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideIgnoredSenderDao(database: AppDatabase): IgnoredSenderDao {
+        return database.ignoredSenderDao()
     }
 }
