@@ -90,6 +90,25 @@ interface TransactionDao {
     @Query("SELECT DISTINCT title FROM transactions ORDER BY title ASC")
     suspend fun getUniqueTitles(): List<String>
 
+    @Query("SELECT DISTINCT bankName FROM transactions WHERE bankName IS NOT NULL ORDER BY bankName ASC")
+    suspend fun getUniqueBanks(): List<String?>
+
+    @Query("""
+        SELECT * FROM transactions WHERE isExcluded = 0 
+        AND date >= :startDate AND date <= :endDate
+        AND (:type IS NULL OR type = :type)
+        AND (:search IS NULL OR title LIKE '%' || :search || '%' OR alias LIKE '%' || :search || '%' OR bankName LIKE '%' || :search || '%')
+        AND (:bank IS NULL OR bankName = :bank)
+        ORDER BY date DESC, id DESC
+    """)
+    suspend fun getFiltered(
+        startDate: Long,
+        endDate: Long,
+        type: String?,
+        search: String?,
+        bank: String?,
+    ): List<TransactionEntity>
+
     @Query("UPDATE transactions SET isExcluded = :excluded WHERE title = :title")
     suspend fun setExcludedByTitle(title: String, excluded: Boolean)
 

@@ -41,7 +41,12 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             transactionDao.observeAll().collect { entities ->
                 val transactions = entities.map { it.toDomain() }
-                refreshState(transactions)
+                val currentFilter = _uiState.value.filter
+                if (currentFilter == TransactionFilter()) {
+                    refreshState(transactions)
+                } else {
+                    applyFilter(currentFilter)
+                }
             }
         }
     }
@@ -52,9 +57,14 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(isRefreshing = true) }
         viewModelScope.launch {
             kotlinx.coroutines.delay(800)
-            val entities = transactionDao.getAllSorted()
-            val transactions = entities.map { it.toDomain() }
-            refreshState(transactions)
+            val currentFilter = _uiState.value.filter
+            if (currentFilter == TransactionFilter()) {
+                val entities = transactionDao.getAllSorted()
+                val transactions = entities.map { it.toDomain() }
+                refreshState(transactions)
+            } else {
+                applyFilter(currentFilter)
+            }
             _uiState.update { it.copy(isRefreshing = false) }
             isRefreshing = false
         }
@@ -161,6 +171,71 @@ class HomeViewModel @Inject constructor(
         prefs.edit().putInt("balanceMode", newMode).apply()
         _uiState.update { it.copy(balanceMode = newMode) }
     }
+
+    fun setFilter(filter: TransactionFilter) {
+        _uiState.update { it.copy(filter = filter) }
+        applyFilter(filter)
+    }
+
+    private fun applyFilter(filter: TransactionFilter) {
+        viewModelScope.launch {
+            val today = LocalDate.now()
+            val (start, end) = when (filter.period) {
+                FilterPeriod.THIS_WEEK -> today.minusDays(today.dayOfWeek.value.toLong() - 1) to today
+                FilterPeriod.THIS_MONTH -> today.with(TemporalAdjusters.firstDayOfMonth()) to today.with(TemporalAdjusters.lastDayOfMonth())
+                FilterPeriod.LAST_MONTH -> today.minusMonths(1).with(TemporalAdjusters.firstDayOfMonth()) to today.minusMonths(1).with(TemporalAdjusters.lastDayOfMonth())
+                FilterPeriod.ALL_TIME -> LocalDate.of(2020, 1, 1) to today.plusYears(10)
+            }
+            val startDate = (filter.customStart ?: start.toEpochDay())
+            val endDate = (filter.customEnd ?: end.toEpochDay())
+            val search = filter.search.ifBlank { null }
+            val bank = filter.bank
+            val type = filter.type
+
+            val filtered = transactionDao.getFiltered(startDate, endDate, type, search, bank).map { it.toDomain() }
+
+            val incomeTotal = transactionDao.getIncomeTotal(startDate, endDate)
+            val expenseTotal = transactionDao.getExpenseTotal(startDate, endDate)
+
+            _uiState.update {
+                it.copy(
+                    transactions = filtered,
+                    totalIncome = incomeTotal,
+                    totalExpense = expenseTotal,
+                    totalBalance = incomeTotal - expenseTotal,
+                )
+            }
+        }
+    }
+
+    fun loadBankSuggestions() {
+        viewModelScope.launch {
+            val banks = transactionDao.getUniqueBanks().filterNotNull().filter { it.isNotBlank() }
+            _uiState.update { it.copy(bankSuggestions = banks) }
+        }
+    }
+
+    fun resetFilter() {
+        val default = TransactionFilter()
+        _uiState.update { it.copy(filter = default) }
+        refresh()
+    }
+}
+
+data class TransactionFilter(
+    val search: String = "",
+    val type: String? = null,
+    val bank: String? = null,
+    val period: FilterPeriod = FilterPeriod.THIS_MONTH,
+    val customStart: Long? = null,
+    val customEnd: Long? = null,
+)
+
+enum class FilterPeriod {
+    THIS_WEEK,
+    THIS_MONTH,
+    LAST_MONTH,
+    ALL_TIME,
 }
 
 data class HomeUiState(
@@ -173,4 +248,6 @@ data class HomeUiState(
     val dailyExpenses: List<com.expensetracker.app.ui.components.DailyExpense> = emptyList(),
     val importResult: SmsImportResult? = null,
     val balanceMode: Int = 0,
+    val filter: TransactionFilter = TransactionFilter(),
+    val bankSuggestions: List<String> = emptyList(),
 )

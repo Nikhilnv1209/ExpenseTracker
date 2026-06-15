@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Brightness3
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.LocalDining
 import androidx.compose.material.icons.rounded.MedicalServices
@@ -129,6 +130,7 @@ fun HomeScreen(
 
     var selectedCurrency by remember { mutableStateOf(currencies[1]) }
     var showSettings by remember { mutableStateOf(false) }
+    var showFilter by remember { mutableStateOf(false) }
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
 
     val smsPermissionLauncher = rememberLauncherForActivityResult(
@@ -145,9 +147,10 @@ fun HomeScreen(
 
     var exportMessage by remember { mutableStateOf<String?>(null) }
 
-    val isSheetOpen = showSettings || selectedTransaction != null
+    val isSheetOpen = showSettings || selectedTransaction != null || showFilter
     BackHandler(enabled = isSheetOpen) {
         showSettings = false
+        showFilter = false
         selectedTransaction = null
     }
 
@@ -155,6 +158,7 @@ fun HomeScreen(
         isSheetOpen = isSheetOpen,
         onDismiss = {
             showSettings = false
+            showFilter = false
             selectedTransaction = null
         },
         mainContent = {
@@ -171,7 +175,11 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                 item { Spacer(modifier = Modifier.height(8.dp)) }
-                item { GreetingHeader(onSettingsClick = { showSettings = true }) }
+                item { GreetingHeader(
+                    onSettingsClick = { showSettings = true },
+                    onFilterClick = { showFilter = true; viewModel.loadBankSuggestions() },
+                    hasActiveFilter = uiState.filter != TransactionFilter(),
+                ) }
                 item { BalanceCard(selectedCurrency, uiState) { viewModel.cycleBalanceMode() } }
                 item { CalendarView(dailyExpenses = uiState.dailyExpenses, graphMode = uiState.balanceMode) }
                 item { RecentTransactionsHeader(onSeeAll = onSeeAll) }
@@ -207,6 +215,21 @@ fun HomeScreen(
             }
         },
     ) {
+        if (showFilter) {
+            FilterSheet(
+                filter = uiState.filter,
+                bankSuggestions = uiState.bankSuggestions,
+                onApply = { filter ->
+                    showFilter = false
+                    viewModel.setFilter(filter)
+                },
+                onReset = {
+                    showFilter = false
+                    viewModel.resetFilter()
+                },
+            )
+        }
+
         if (showSettings) {
             SettingsSheet(
                 current = selectedCurrency,
@@ -283,7 +306,11 @@ fun HomeScreen(
 }
 
 @Composable
-private fun GreetingHeader(onSettingsClick: () -> Unit) {
+private fun GreetingHeader(
+    onSettingsClick: () -> Unit,
+    onFilterClick: () -> Unit,
+    hasActiveFilter: Boolean = false,
+) {
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
     val (greeting, icon) = when (hour) {
         in 5..11 -> "Good Morning" to Icons.Rounded.WbSunny
@@ -320,26 +347,50 @@ private fun GreetingHeader(onSettingsClick: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(
-                    color = Color(0xFF7C3AED).copy(alpha = 0.1f),
-                    shape = CircleShape,
+        Row {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = if (hasActiveFilter) Color(0xFFFF9800).copy(alpha = 0.15f) else Color(0xFF7C3AED).copy(alpha = 0.1f),
+                        shape = CircleShape,
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onFilterClick,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.FilterList,
+                    contentDescription = "Filter",
+                    modifier = Modifier.size(20.dp),
+                    tint = if (hasActiveFilter) Color(0xFFFF9800) else Color(0xFF7C3AED).copy(alpha = 0.7f),
                 )
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onSettingsClick,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Settings,
-                contentDescription = "Settings",
-                modifier = Modifier.size(20.dp),
-                tint = Color(0xFF7C3AED),
-            )
+            }
+            Spacer(Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = Color(0xFF7C3AED).copy(alpha = 0.1f),
+                        shape = CircleShape,
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onSettingsClick,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Settings,
+                    contentDescription = "Settings",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color(0xFF7C3AED),
+                )
+            }
         }
     }
 }
