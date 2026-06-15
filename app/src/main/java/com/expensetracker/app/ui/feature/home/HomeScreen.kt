@@ -160,7 +160,7 @@ fun HomeScreen(
                 ) {
                 item { Spacer(modifier = Modifier.height(8.dp)) }
                 item { GreetingHeader(onSettingsClick = { showSettings = true }) }
-                item { BalanceCard(selectedCurrency, uiState) }
+                item { BalanceCard(selectedCurrency, uiState) { viewModel.cycleBalanceMode() } }
                 item { CalendarView(dailyExpenses = uiState.dailyExpenses) }
                 item { RecentTransactionsHeader(onSeeAll = onSeeAll) }
 
@@ -329,8 +329,8 @@ private fun GreetingHeader(onSettingsClick: () -> Unit) {
 }
 
 @Composable
-private fun BalanceCard(currency: Currency, uiState: HomeUiState) {
-    var mode by remember { mutableStateOf(0) }
+private fun BalanceCard(currency: Currency, uiState: HomeUiState, onCycleMode: () -> Unit) {
+    val mode = uiState.balanceMode
 
     val gradientColors = when (mode) {
         0 -> listOf(Color(0xFF1E1B2E), Color(0xFF2D2640))
@@ -371,7 +371,7 @@ private fun BalanceCard(currency: Currency, uiState: HomeUiState) {
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-            ) { mode = (mode + 1) % 3 },
+            ) { onCycleMode() },
     ) {
         Box(
             modifier = Modifier

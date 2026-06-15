@@ -150,6 +150,10 @@ class HomeViewModel @Inject constructor(
             transactionDao.applyAliasToAll(originalTitle, alias)
         }
     }
+
+    fun cycleBalanceMode() {
+        _uiState.update { it.copy(balanceMode = (it.balanceMode + 1) % 3) }
+    }
 }
 
 data class HomeUiState(
@@ -161,4 +165,5 @@ data class HomeUiState(
     val totalBalance: Double = 0.0,
     val dailyExpenses: List<com.expensetracker.app.ui.components.DailyExpense> = emptyList(),
     val importResult: SmsImportResult? = null,
+    val balanceMode: Int = 0,
 )
