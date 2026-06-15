@@ -48,6 +48,7 @@ import com.expensetracker.app.domain.model.Transaction
 import com.expensetracker.app.ui.components.GlassCard
 import com.expensetracker.app.ui.components.LiquidGlassLayout
 import com.expensetracker.app.ui.components.TransactionDetailSheet
+import com.expensetracker.app.ui.feature.home.FilterPeriod
 import com.expensetracker.app.ui.feature.home.FilterSheet
 import com.expensetracker.app.ui.feature.home.TransactionFilter
 import com.expensetracker.app.ui.feature.home.categoryColor
@@ -70,7 +71,8 @@ fun TransactionListScreen(
     val currency = currencies[1]
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
     var showFilter by remember { mutableStateOf(false) }
-    val isFilterActive = uiState.filter != TransactionFilter()
+    val defaultFilter = remember { TransactionFilter(period = FilterPeriod.ALL_TIME) }
+    val isFilterActive = uiState.filter != defaultFilter
 
     val isSheetOpen = showFilter || selectedTransaction != null
     BackHandler(enabled = isSheetOpen) {
@@ -232,6 +234,7 @@ fun TransactionListScreen(
             FilterSheet(
                 filter = uiState.filter,
                 bankSuggestions = uiState.bankSuggestions,
+                defaultPeriod = FilterPeriod.ALL_TIME,
                 onApply = { filter ->
                     showFilter = false
                     viewModel.setFilter(filter)

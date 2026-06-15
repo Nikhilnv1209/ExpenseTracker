@@ -46,6 +46,7 @@ private val chipUnselected = Color.White.copy(alpha = 0.08f)
 fun FilterSheet(
     filter: TransactionFilter,
     bankSuggestions: List<String>,
+    defaultPeriod: FilterPeriod = FilterPeriod.THIS_MONTH,
     onApply: (TransactionFilter) -> Unit,
     onReset: () -> Unit,
 ) {
@@ -80,7 +81,7 @@ fun FilterSheet(
                             search = ""
                             selectedType = null
                             selectedBank = null
-                            selectedPeriod = FilterPeriod.THIS_MONTH
+                            selectedPeriod = defaultPeriod
                             onReset()
                         }
                         .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -123,7 +124,7 @@ fun FilterSheet(
             FilterPeriod.entries.forEach { period ->
                 val selected = period == selectedPeriod
                 FilterChip(label = period.label, selected = selected) {
-                    selectedPeriod = if (selected) FilterPeriod.THIS_MONTH else period
+                    selectedPeriod = if (selected) defaultPeriod else period
                 }
             }
         }

@@ -9,6 +9,7 @@ import com.expensetracker.app.domain.model.Transaction
 import com.expensetracker.app.ui.feature.home.FilterPeriod
 import com.expensetracker.app.ui.feature.home.TransactionFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,9 +24,11 @@ data class TransactionListUiState(
     val transactions: List<Transaction> = emptyList(),
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
-    val filter: TransactionFilter = TransactionFilter(),
+    val filter: TransactionFilter = TransactionFilter(period = FilterPeriod.ALL_TIME),
     val bankSuggestions: List<String> = emptyList(),
 )
+
+private val TransactionListDefaultFilter = TransactionFilter(period = FilterPeriod.ALL_TIME)
 
 @HiltViewModel
 class TransactionListViewModel @Inject constructor(
@@ -36,32 +39,42 @@ class TransactionListViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TransactionListUiState())
     val uiState: StateFlow<TransactionListUiState> = _uiState.asStateFlow()
 
+    private var loadJob: Job? = null
+
     init {
         loadFiltered()
     }
 
     fun loadFiltered(filter: TransactionFilter = _uiState.value.filter) {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val (transactions, incomeTotal, expenseTotal) = fetchFiltered(filter)
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    transactions = transactions,
-                    totalIncome = incomeTotal,
-                    totalExpense = expenseTotal,
-                    filter = filter,
-                )
+            try {
+                val (transactions, incomeTotal, expenseTotal) = fetchFiltered(filter)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        transactions = transactions,
+                        totalIncome = incomeTotal,
+                        totalExpense = expenseTotal,
+                    )
+                }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
 
     fun setFilter(filter: TransactionFilter) {
+        loadJob?.cancel()
+        _uiState.update { it.copy(filter = filter) }
         loadFiltered(filter)
     }
 
     fun resetFilter() {
-        loadFiltered(TransactionFilter())
+        loadJob?.cancel()
+        _uiState.update { it.copy(filter = TransactionListDefaultFilter) }
+        loadFiltered(TransactionListDefaultFilter)
     }
 
     fun loadBankSuggestions() {
