@@ -87,6 +87,9 @@ interface TransactionDao {
     @Query("UPDATE transactions SET alias = :alias WHERE id = :id")
     suspend fun setAlias(id: Long, alias: String?)
 
+    @Query("UPDATE transactions SET category = :category WHERE id = :id")
+    suspend fun updateCategory(id: Long, category: String)
+
     @Query("UPDATE transactions SET note = :note WHERE id = :id")
     suspend fun setNote(id: Long, note: String?)
 

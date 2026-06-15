@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.expensetracker.app.ui.feature.agent.AgentChatScreen
 import com.expensetracker.app.ui.feature.aliases.AliasesScreen
 import com.expensetracker.app.ui.feature.excluded.ExcludedTransactionsScreen
 import com.expensetracker.app.ui.feature.home.HomeScreen
@@ -78,6 +79,7 @@ class MainActivity : ComponentActivity() {
                                 onViewExcluded = { navController.navigate("excluded") },
                                 onManageAliases = { navController.navigate("aliases") },
                                 onIgnoredSenders = { navController.navigate("ignored") },
+                                onOpenAgent = { navController.navigate("agent") },
                             )
                         }
                         composable("transactions") {
@@ -91,6 +93,9 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("ignored") {
                             IgnoredSendersScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable("agent") {
+                            AgentChatScreen(onBack = { navController.popBackStack() })
                         }
                     }
                 }

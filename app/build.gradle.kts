@@ -4,6 +4,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.developers.ksp)
     alias(libs.plugins.dagger.hilt.android)
 }
@@ -82,6 +83,12 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.work.runtime.ktx)
+
+    // Networking + JSON + encrypted prefs
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.security.crypto)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

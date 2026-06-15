@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Brightness3
 import androidx.compose.material.icons.rounded.DirectionsCar
@@ -115,6 +116,7 @@ fun HomeScreen(
     onViewExcluded: () -> Unit = {},
     onManageAliases: () -> Unit = {},
     onIgnoredSenders: () -> Unit = {},
+    onOpenAgent: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -245,6 +247,10 @@ fun HomeScreen(
                 onIgnoredSenders = {
                     showSettings = false
                     onIgnoredSenders()
+                },
+                onOpenAgent = {
+                    showSettings = false
+                    onOpenAgent()
                 },
                 onImportSms = {
                     showSettings = false
@@ -706,6 +712,7 @@ private fun SettingsSheet(
     onViewExcluded: () -> Unit,
     onManageAliases: () -> Unit,
     onIgnoredSenders: () -> Unit,
+    onOpenAgent: () -> Unit,
     onImportSms: () -> Unit,
     onExportSms: () -> Unit,
 ) {
@@ -726,6 +733,7 @@ private fun SettingsSheet(
             onViewExcluded = onViewExcluded,
             onManageAliases = onManageAliases,
             onIgnoredSenders = onIgnoredSenders,
+            onOpenAgent = onOpenAgent,
             onImportSms = onImportSms,
             onExportSms = onExportSms,
         )
@@ -739,6 +747,7 @@ private fun SettingsContent(
     onViewExcluded: () -> Unit,
     onManageAliases: () -> Unit,
     onIgnoredSenders: () -> Unit,
+    onOpenAgent: () -> Unit,
     onImportSms: () -> Unit,
     onExportSms: () -> Unit,
 ) {
@@ -770,6 +779,13 @@ private fun SettingsContent(
             title = "Manage Aliases",
             subtitle = "Rename and organize transaction titles",
             onClick = onManageAliases,
+        )
+
+        SettingsRow(
+            icon = Icons.Rounded.AutoAwesome,
+            title = "Finance Agent",
+            subtitle = "Ask AI about your spending and organize transactions",
+            onClick = onOpenAgent,
         )
 
         SettingsRow(
