@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +50,7 @@ fun TransactionDetailSheet(
     currency: com.expensetracker.app.ui.feature.home.Currency,
     onToggleExcluded: (Boolean) -> Unit = {},
     onSetAlias: (String?) -> Unit = {},
+    onSetNote: (String?) -> Unit = {},
 ) {
     val catColor = categoryColor(transaction.category)
     val displayTitle = transaction.alias ?: transaction.title
@@ -56,7 +60,9 @@ fun TransactionDetailSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
+            .fillMaxHeight(0.9f)
+            .imePadding()
+            .navigationBarsPadding()
             .padding(horizontal = 24.dp, vertical = 16.dp),
     ) {
         Row(
@@ -100,12 +106,17 @@ fun TransactionDetailSheet(
 
         Spacer(Modifier.height(20.dp))
 
-        GlassCard(
-            shape = RoundedCornerShape(12.dp),
-            tint = Color(0xFF7C3AED),
-            tintAlpha = 0.06f,
-            borderAlpha = 0.08f,
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
         ) {
+            GlassCard(
+                shape = RoundedCornerShape(12.dp),
+                tint = Color(0xFF7C3AED),
+                tintAlpha = 0.06f,
+                borderAlpha = 0.08f,
+            ) {
             if (isEditingAlias) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
@@ -195,6 +206,108 @@ fun TransactionDetailSheet(
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        val note = transaction.note
+        var isEditingNote by remember { mutableStateOf(false) }
+        var noteText by remember(transaction.note) { mutableStateOf(note ?: "") }
+
+        GlassCard(
+            shape = RoundedCornerShape(12.dp),
+            tint = Color(0xFF7C3AED),
+            tintAlpha = 0.06f,
+            borderAlpha = 0.08f,
+        ) {
+            if (isEditingNote) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Note",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = noteText,
+                        onValueChange = { noteText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Add a reason or note...") },
+                        singleLine = false,
+                        minLines = 2,
+                        maxLines = 4,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF7C3AED),
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                            cursorColor = Color(0xFF7C3AED),
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier
+                                .clickable { isEditingNote = false; noteText = note ?: "" }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Save",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF7C3AED),
+                            modifier = Modifier
+                                .clickable {
+                                    val trimmed = noteText.trim()
+                                    onSetNote(trimmed.ifBlank { null })
+                                    isEditingNote = false
+                                }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isEditingNote = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Edit,
+                        contentDescription = "Edit note",
+                        tint = Color(0xFF7C3AED),
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Note",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF7C3AED),
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = note ?: "Add a reason or note",
+                            fontSize = 12.sp,
+                            color = if (note != null) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
@@ -301,6 +414,7 @@ fun TransactionDetailSheet(
         }
 
         Spacer(Modifier.height(24.dp))
+        }
     }
 }
 

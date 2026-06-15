@@ -166,6 +166,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun setNote(transactionId: Long, note: String?) {
+        viewModelScope.launch {
+            transactionDao.setNote(transactionId, note?.trim()?.ifBlank { null })
+        }
+    }
+
     fun cycleBalanceMode() {
         val newMode = (_uiState.value.balanceMode + 1) % 3
         prefs.edit().putInt("balanceMode", newMode).apply()

@@ -8,6 +8,8 @@ import android.os.Build
 import android.provider.Telephony
 import android.util.Log
 import com.expensetracker.app.data.local.AppDatabase
+import com.expensetracker.app.notification.DailySummaryWorker
+import com.expensetracker.app.notification.TransactionNotificationHelper
 import com.expensetracker.app.sms.SmsReceiver
 import dagger.hilt.android.HiltAndroidApp
 
@@ -18,6 +20,12 @@ class ExpenseTrackerApplication : Application() {
     val ignoredSenderDao by lazy { AppDatabase.getInstance(this).ignoredSenderDao() }
 
     private var smsReceiver: SmsReceiver? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        TransactionNotificationHelper.createChannels(this)
+        DailySummaryWorker.schedule(this)
+    }
 
     fun registerSmsReceiverIfNeeded() {
         if (smsReceiver != null) return

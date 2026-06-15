@@ -258,6 +258,10 @@ fun TransactionListScreen(
                     viewModel.setAlias(txn.id, txn.title, alias)
                     selectedTransaction = null
                 },
+                onSetNote = { note ->
+                    viewModel.setNote(txn.id, note)
+                    selectedTransaction = null
+                },
             )
         }
     }

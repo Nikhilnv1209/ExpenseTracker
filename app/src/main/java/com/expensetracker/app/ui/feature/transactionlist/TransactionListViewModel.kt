@@ -122,4 +122,11 @@ class TransactionListViewModel @Inject constructor(
             loadFiltered()
         }
     }
+
+    fun setNote(transactionId: Long, note: String?) {
+        viewModelScope.launch {
+            transactionDao.setNote(transactionId, note?.trim()?.ifBlank { null })
+            loadFiltered()
+        }
+    }
 }

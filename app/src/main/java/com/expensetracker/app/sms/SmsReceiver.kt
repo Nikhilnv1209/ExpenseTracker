@@ -9,6 +9,7 @@ import com.expensetracker.app.ExpenseTrackerApplication
 import com.expensetracker.app.data.local.IgnoredSenderEntity
 import com.expensetracker.app.data.local.toEntity
 import com.expensetracker.app.domain.model.Category
+import com.expensetracker.app.notification.TransactionNotificationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -74,8 +75,17 @@ class SmsReceiver : BroadcastReceiver() {
                     alias = resolvedAlias,
                 )
 
-                transactionDao.insert(transaction.toEntity())
-                Log.d(TAG, "Auto-imported: ${parsed.description} ₹${parsed.amount}")
+                val id = transactionDao.insert(transaction.toEntity())
+                Log.d(TAG, "Auto-imported: ${parsed.description} ₹${parsed.amount} (id=$id)")
+                if (id > 0) {
+                    TransactionNotificationHelper.showNewTransactionNotification(
+                        context = context,
+                        transactionId = id,
+                        title = parsed.description,
+                        amount = parsed.amount,
+                        isIncome = parsed.type == TransactionType.CREDIT,
+                    )
+                }
             }
         }
     }
