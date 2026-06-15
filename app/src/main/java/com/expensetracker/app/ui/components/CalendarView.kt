@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,6 +52,8 @@ import java.util.Calendar
 import kotlin.math.roundToInt
 
 private val accentColor = Color(0xFF7C3AED)
+private val incomeColor = Color(0xFF4CAF50)
+private val expenseColor = Color(0xFFE91E63)
 
 data class DailyExpense(val day: Int, val epochDay: Long, val total: Double, val income: Double = 0.0)
 
@@ -58,6 +61,7 @@ data class DailyExpense(val day: Int, val epochDay: Long, val total: Double, val
 fun CalendarView(
     dailyExpenses: List<DailyExpense>,
     modifier: Modifier = Modifier,
+    graphMode: Int = 0,
 ) {
     var selectedDay by remember { mutableIntStateOf(-1) }
     var baseMonth by remember { mutableIntStateOf(Calendar.getInstance().get(Calendar.MONTH)) }
@@ -107,6 +111,7 @@ fun CalendarView(
                 onSettle = { delta -> weekOffset += delta },
                 selectedDay = selectedDay,
                 onSelect = { selectedDay = it },
+                graphMode = graphMode,
             )
         }
     }
@@ -144,6 +149,7 @@ private fun LineChartView(
     onSettle: (Int) -> Unit,
     selectedDay: Int,
     onSelect: (Int) -> Unit,
+    graphMode: Int = 0,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val animatable = remember { Animatable(0f) }
@@ -224,57 +230,141 @@ private fun LineChartView(
                 val nextWindow = buildWindow(weekStart, 1, 7)
 
                 val allPoints = prevWindow + window + nextWindow
-                val globalMax = allPoints.maxOf { it.amt }.coerceAtLeast(1.0)
 
-                val coords = allPoints.mapIndexed { i, info ->
-                    val x = i * dayW + dayW / 2f - (1f + visibleOffset) * w
-                    val y = (h - ((info.amt / globalMax) * (h - margin * 2) + margin)).toFloat()
-                    Offset(x, y)
-                }
+                val lineColor: Color
+                val fillColor: Color
+                val valueExtractor: (DayInfo) -> Double
 
-                if (coords.isEmpty()) return@Canvas
-
-                val pathCoords = coords.filter { it.x >= -dayW && it.x <= w + dayW }
-
-                val linePath = Path().apply {
-                    if (pathCoords.isEmpty()) return@apply
-                    moveTo(pathCoords.first().x, pathCoords.first().y)
-                    for (i in 0 until pathCoords.size - 1) {
-                        val p0 = if (i > 0) pathCoords[i - 1] else pathCoords[i]
-                        val p1 = pathCoords[i]
-                        val p2 = pathCoords[i + 1]
-                        val p3 = if (i + 2 < pathCoords.size) pathCoords[i + 2] else pathCoords[i + 1]
-                        cubicTo(
-                            p1.x + (p2.x - p0.x) / 6f,
-                            p1.y + (p2.y - p0.y) / 6f,
-                            p2.x - (p3.x - p1.x) / 6f,
-                            p2.y - (p3.y - p1.y) / 6f,
-                            p2.x, p2.y,
-                        )
+                when (graphMode) {
+                    1 -> {
+                        lineColor = incomeColor
+                        fillColor = incomeColor
+                        valueExtractor = { it.income }
+                    }
+                    2 -> {
+                        lineColor = expenseColor
+                        fillColor = expenseColor
+                        valueExtractor = { it.expense }
+                    }
+                    else -> {
+                        lineColor = accentColor
+                        fillColor = accentColor
+                        valueExtractor = { it.amt }
                     }
                 }
 
-                val fillPath = Path().apply {
-                    addPath(linePath)
-                    lineTo(pathCoords.last().x, h)
-                    lineTo(pathCoords.first().x, h)
-                    close()
-                }
-                drawPath(
-                    fillPath,
-                    brush = Brush.verticalGradient(0f to accentColor.copy(alpha = 0.35f), 1f to accentColor.copy(alpha = 0.0f)),
-                )
-                drawPath(linePath, color = accentColor, style = Stroke(width = 3f))
+                if (graphMode == 0) {
+                    val globalMaxIncome = allPoints.maxOf { it.income }.coerceAtLeast(1.0)
+                    val globalMaxExpense = allPoints.maxOf { it.expense }.coerceAtLeast(1.0)
+                    val halfH = (h - margin * 2) / 2f
+                    val midY = margin + halfH
 
-                coords.forEachIndexed { i, c ->
-                    if (i in 7..13) {
-                        val isTooltipTarget = tooltipOffset != null && i >= 7 && i < 14 && allPoints[i].day == selectedDay && c.x == tooltipOffset?.x
-                        if (isTooltipTarget) {
-                            drawCircle(Color.White, 6f, c)
-                            drawCircle(accentColor, center = c, radius = 8f)
-                        } else {
-                            drawCircle(Color.White, 4f, c)
-                            drawCircle(accentColor, center = c, radius = 5f)
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.08f),
+                        start = Offset(0f, midY),
+                        end = Offset(w, midY),
+                        strokeWidth = 1f,
+                    )
+
+                    val incomeCoords = allPoints.mapIndexed { i, info ->
+                        val x = i * dayW + dayW / 2f - (1f + visibleOffset) * w
+                        val yUp = if (info.income > 0) midY - (info.income / globalMaxIncome * halfH).toFloat() else midY
+                        Offset(x, yUp)
+                    }
+                    val expenseCoords = allPoints.mapIndexed { i, info ->
+                        val x = i * dayW + dayW / 2f - (1f + visibleOffset) * w
+                        val yDown = if (info.expense > 0) midY + (info.expense / globalMaxExpense * halfH).toFloat() else midY
+                        Offset(x, yDown)
+                    }
+
+                    val incomePathCoords = incomeCoords.filter { it.x >= -dayW && it.x <= w + dayW }
+                    val expensePathCoords = expenseCoords.filter { it.x >= -dayW && it.x <= w + dayW }
+
+                    if (incomePathCoords.size >= 2) {
+                        val incomeLine = catmullRomPath(incomePathCoords)
+                        val incomeFill = Path().apply {
+                            addPath(incomeLine)
+                            lineTo(incomePathCoords.last().x, midY)
+                            lineTo(incomePathCoords.first().x, midY)
+                            close()
+                        }
+                        drawPath(incomeFill, brush = Brush.verticalGradient(0f to incomeColor.copy(alpha = 0.3f), 1f to incomeColor.copy(alpha = 0.0f)))
+                        drawPath(incomeLine, color = incomeColor, style = Stroke(width = 2.5f))
+                    }
+
+                    if (expensePathCoords.size >= 2) {
+                        val expenseLine = catmullRomPath(expensePathCoords)
+                        val expenseFill = Path().apply {
+                            addPath(expenseLine)
+                            lineTo(expensePathCoords.last().x, midY)
+                            lineTo(expensePathCoords.first().x, midY)
+                            close()
+                        }
+                        drawPath(expenseFill, brush = Brush.verticalGradient(0f to expenseColor.copy(alpha = 0.0f), 1f to expenseColor.copy(alpha = 0.3f)))
+                        drawPath(expenseLine, color = expenseColor, style = Stroke(width = 2.5f))
+                    }
+
+                    incomeCoords.forEachIndexed { i, c ->
+                        if (i in 7..13 && allPoints[i].income > 0) {
+                            val isTarget = tooltipOffset != null && i >= 7 && i < 14 && allPoints[i].day == selectedDay
+                            if (isTarget) {
+                                drawCircle(Color.White, 6f, c)
+                                drawCircle(incomeColor, center = c, radius = 8f)
+                            } else {
+                                drawCircle(Color.White, 3f, c)
+                                drawCircle(incomeColor, center = c, radius = 4f)
+                            }
+                        }
+                    }
+                    expenseCoords.forEachIndexed { i, c ->
+                        if (i in 7..13 && allPoints[i].expense > 0) {
+                            val isTarget = tooltipOffset != null && i >= 7 && i < 14 && allPoints[i].day == selectedDay
+                            if (isTarget) {
+                                drawCircle(Color.White, 6f, c)
+                                drawCircle(expenseColor, center = c, radius = 8f)
+                            } else {
+                                drawCircle(Color.White, 3f, c)
+                                drawCircle(expenseColor, center = c, radius = 4f)
+                            }
+                        }
+                    }
+                } else {
+                    val globalMax = allPoints.maxOf { valueExtractor(it) }.coerceAtLeast(1.0)
+
+                    val coords = allPoints.mapIndexed { i, info ->
+                        val x = i * dayW + dayW / 2f - (1f + visibleOffset) * w
+                        val y = (h - ((valueExtractor(info) / globalMax) * (h - margin * 2) + margin)).toFloat()
+                        Offset(x, y)
+                    }
+
+                    if (coords.isEmpty()) return@Canvas
+
+                    val pathCoords = coords.filter { it.x >= -dayW && it.x <= w + dayW }
+
+                    val linePath = catmullRomPath(pathCoords)
+
+                    val fillPath = Path().apply {
+                        addPath(linePath)
+                        lineTo(pathCoords.last().x, h)
+                        lineTo(pathCoords.first().x, h)
+                        close()
+                    }
+                    drawPath(
+                        fillPath,
+                        brush = Brush.verticalGradient(0f to fillColor.copy(alpha = 0.35f), 1f to fillColor.copy(alpha = 0.0f)),
+                    )
+                    drawPath(linePath, color = lineColor, style = Stroke(width = 3f))
+
+                    coords.forEachIndexed { i, c ->
+                        if (i in 7..13) {
+                            val isTooltipTarget = tooltipOffset != null && i >= 7 && i < 14 && allPoints[i].day == selectedDay && c.x == tooltipOffset?.x
+                            if (isTooltipTarget) {
+                                drawCircle(Color.White, 6f, c)
+                                drawCircle(lineColor, center = c, radius = 8f)
+                            } else {
+                                drawCircle(Color.White, 4f, c)
+                                drawCircle(lineColor, center = c, radius = 5f)
+                            }
                         }
                     }
                 }
@@ -282,14 +372,66 @@ private fun LineChartView(
 
             tooltipOffset?.let { tp ->
                 val net = tooltipIncome - tooltipAmt
-                val label = buildString {
-                    if (tooltipIncome > 0) append("+\u20B9${String.format("%.0f", tooltipIncome)} ")
-                    if (tooltipAmt > 0) append("-\u20B9${String.format("%.0f", tooltipAmt)} ")
-                    append("Net ${if (net >= 0) "+" else ""}\u20B9${String.format("%.0f", net)}")
-                }
-                val tooltipW = with(density) { 180.dp.toPx() }
-                val tooltipH = with(density) { 30.dp.toPx() }
                 val canvasW = if (canvasWidthPx > 0f) canvasWidthPx else with(density) { 360.dp.toPx() }
+
+                val tooltipContent: @Composable () -> Unit
+                val tooltipH: Float
+
+                when (graphMode) {
+                    1 -> {
+                        tooltipH = with(density) { 28.dp.toPx() }
+                        tooltipContent = {
+                            Text(
+                                text = "+\u20B9${String.format("%.0f", tooltipIncome)}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = incomeColor,
+                            )
+                        }
+                    }
+                    2 -> {
+                        tooltipH = with(density) { 28.dp.toPx() }
+                        tooltipContent = {
+                            Text(
+                                text = "-\u20B9${String.format("%.0f", tooltipAmt)}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = expenseColor,
+                            )
+                        }
+                    }
+                    else -> {
+                        tooltipH = with(density) { 72.dp.toPx() }
+                        tooltipContent = {
+                            Column(Modifier.width(IntrinsicSize.Max)) {
+                                Text(
+                                    text = "+\u20B9${String.format("%.0f", tooltipIncome)}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = incomeColor,
+                                )
+                                Text(
+                                    text = "-\u20B9${String.format("%.0f", tooltipAmt)}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = expenseColor,
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(0.5.dp)
+                                        .background(Color.White.copy(alpha = 0.15f)),
+                                )
+                                Text(
+                                    text = "${if (net >= 0) "+" else ""}\u20B9${String.format("%.0f", net)}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (net >= 0) incomeColor else expenseColor,
+                                )
+                            }
+                        }
+                    }
+                }
 
                 val aboveSpace = tp.y
                 val showAbove = aboveSpace >= tooltipH + with(density) { 12.dp.toPx() }
@@ -298,7 +440,7 @@ private fun LineChartView(
                 val adjustedY: Float
 
                 if (showAbove) {
-                    adjustedX = (tp.x - tooltipW / 2f).coerceIn(0f, canvasW - tooltipW)
+                    adjustedX = (tp.x - with(density) { 50.dp.toPx() }).coerceIn(0f, canvasW - with(density) { 100.dp.toPx() })
                     adjustedY = tp.y - tooltipH - with(density) { 8.dp.toPx() }
                 } else {
                     val showRight = tp.x < canvasW / 2f
@@ -306,7 +448,7 @@ private fun LineChartView(
                         adjustedX = tp.x + with(density) { 12.dp.toPx() }
                         adjustedY = (tp.y - tooltipH / 2f).coerceIn(0f, with(density) { 140.dp.toPx() } - tooltipH)
                     } else {
-                        adjustedX = tp.x - tooltipW - with(density) { 12.dp.toPx() }
+                        adjustedX = tp.x - with(density) { 80.dp.toPx() } - with(density) { 12.dp.toPx() }
                         adjustedY = (tp.y - tooltipH / 2f).coerceIn(0f, with(density) { 140.dp.toPx() } - tooltipH)
                     }
                 }
@@ -315,17 +457,23 @@ private fun LineChartView(
                     modifier = Modifier
                         .offset { IntOffset(adjustedX.roundToInt(), adjustedY.roundToInt()) }
                         .background(
-                            color = Color(0xFF2B2930),
-                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF1A1825).copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(10.dp),
                         )
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.12f),
+                                    Color.Transparent,
+                                ),
+                                startY = 0f,
+                                endY = 60f,
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                        )
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
                 ) {
-                    Text(
-                        text = label,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (net >= 0) Color(0xFF4CAF50) else Color(0xFFE91E63),
-                    )
+                    tooltipContent()
                 }
             }
         }
@@ -337,7 +485,6 @@ private fun LineChartView(
             val prevWindow = buildWindow(weekStart, -1, 7)
             val nextWindow = buildWindow(weekStart, 1, 7)
             val allPointsWindow = prevWindow + window + nextWindow
-            val globalMax = allPointsWindow.maxOf { it.amt }.coerceAtLeast(1.0)
             val canvasH = with(density) { 140.dp.toPx() }
             val margin = 12f
             val dayLabels = listOf("Mon","Tue","Wed","Thu","Fri","Sat","Sun")
@@ -356,8 +503,25 @@ private fun LineChartView(
                                 onSelect(info.day)
                                 return@clickable
                             }
-                            val dotY = canvasH - ((info.amt / globalMax).toFloat() * (canvasH - margin * 2) + margin)
                             val dayW = if (canvasWidthPx > 0f) canvasWidthPx / 7f else with(density) { 360.dp.toPx() } / 7f
+                            val dotY: Float
+                            if (graphMode == 0) {
+                                val halfH = (canvasH - margin * 2) / 2f
+                                val midY = margin + halfH
+                                val gMaxInc = allPointsWindow.maxOf { it.income }.coerceAtLeast(1.0)
+                                val gMaxExp = allPointsWindow.maxOf { it.expense }.coerceAtLeast(1.0)
+                                dotY = if (info.income >= info.expense) {
+                                    midY - (info.income / gMaxInc * halfH).toFloat()
+                                } else {
+                                    midY + (info.expense / gMaxExp * halfH).toFloat()
+                                }
+                            } else {
+                                val value = if (graphMode == 1) info.income else info.expense
+                                val gMax = allPointsWindow.maxOf {
+                                    if (graphMode == 1) it.income else it.expense
+                                }.coerceAtLeast(1.0)
+                                dotY = canvasH - ((value / gMax).toFloat() * (canvasH - margin * 2) + margin)
+                            }
                             tooltipAmt = info.expense
                             tooltipIncome = info.income
                             tooltipOffset = Offset(
@@ -377,6 +541,26 @@ private fun LineChartView(
             }
         }
     }
+}
+
+private fun catmullRomPath(points: List<Offset>): Path {
+    val path = Path()
+    if (points.isEmpty()) return path
+    path.moveTo(points.first().x, points.first().y)
+    for (i in 0 until points.size - 1) {
+        val p0 = if (i > 0) points[i - 1] else points[i]
+        val p1 = points[i]
+        val p2 = points[i + 1]
+        val p3 = if (i + 2 < points.size) points[i + 2] else points[i + 1]
+        path.cubicTo(
+            p1.x + (p2.x - p0.x) / 6f,
+            p1.y + (p2.y - p0.y) / 6f,
+            p2.x - (p3.x - p1.x) / 6f,
+            p2.y - (p3.y - p1.y) / 6f,
+            p2.x, p2.y,
+        )
+    }
+    return path
 }
 
 private val monthNames = arrayOf(

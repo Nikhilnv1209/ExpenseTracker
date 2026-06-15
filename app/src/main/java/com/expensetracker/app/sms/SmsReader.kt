@@ -74,6 +74,8 @@ class SmsReader @Inject constructor(
         return smsList
     }
 
+    fun isBankSmsPublic(address: String, body: String): Boolean = isBankSms(address, body)
+
     private fun isBankSms(address: String, body: String): Boolean {
         val normalizedAddress = address.uppercase(Locale.ENGLISH)
             .replace("+", "")

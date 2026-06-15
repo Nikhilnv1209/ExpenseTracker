@@ -119,15 +119,27 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    remember {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED) {
+            (context.applicationContext as com.expensetracker.app.ExpenseTrackerApplication)
+                .registerSmsReceiverIfNeeded()
+        }
+        true
+    }
+
     var selectedCurrency by remember { mutableStateOf(currencies[1]) }
     var showSettings by remember { mutableStateOf(false) }
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
 
     val smsPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { isGranted ->
-        if (isGranted) {
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.READ_SMS] == true &&
+            permissions[Manifest.permission.RECEIVE_SMS] == true
+        if (granted) {
             viewModel.importFromSms()
+            (context.applicationContext as com.expensetracker.app.ExpenseTrackerApplication)
+                .registerSmsReceiverIfNeeded()
         }
     }
 
@@ -161,7 +173,7 @@ fun HomeScreen(
                 item { Spacer(modifier = Modifier.height(8.dp)) }
                 item { GreetingHeader(onSettingsClick = { showSettings = true }) }
                 item { BalanceCard(selectedCurrency, uiState) { viewModel.cycleBalanceMode() } }
-                item { CalendarView(dailyExpenses = uiState.dailyExpenses) }
+                item { CalendarView(dailyExpenses = uiState.dailyExpenses, graphMode = uiState.balanceMode) }
                 item { RecentTransactionsHeader(onSeeAll = onSeeAll) }
 
                 if (uiState.isLoading) {
@@ -218,7 +230,9 @@ fun HomeScreen(
                             viewModel.importFromSms()
                         }
                         else -> {
-                            smsPermissionLauncher.launch(Manifest.permission.READ_SMS)
+                            smsPermissionLauncher.launch(
+                                arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
+                            )
                         }
                     }
                 },
@@ -229,7 +243,9 @@ fun HomeScreen(
                             viewModel.exportBankSmsToFile { exportMessage = it }
                         }
                         else -> {
-                            smsPermissionLauncher.launch(Manifest.permission.READ_SMS)
+                            smsPermissionLauncher.launch(
+                                arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
+                            )
                         }
                     }
                 },
