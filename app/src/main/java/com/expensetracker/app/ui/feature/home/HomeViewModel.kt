@@ -31,66 +31,66 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
-        loadTransactions()
+        viewModelScope.launch {
+            transactionDao.observeAll().collect { entities ->
+                val transactions = entities.map { it.toDomain() }
+                refreshState(transactions)
+            }
+        }
     }
 
-    fun loadTransactions() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+    private suspend fun refreshState(transactions: List<Transaction>) {
+        val today = LocalDate.now()
+        val monthStart = today.with(TemporalAdjusters.firstDayOfMonth())
+        val monthEnd = today.with(TemporalAdjusters.lastDayOfMonth())
 
-            val today = LocalDate.now()
-            val monthStart = today.with(TemporalAdjusters.firstDayOfMonth())
-            val monthEnd = today.with(TemporalAdjusters.lastDayOfMonth())
+        val monthTransactions = transactions.filter {
+            !it.date.isBefore(monthStart) && !it.date.isAfter(monthEnd)
+        }
 
-            val transactions = transactionDao.getByDateRange(
-                monthStart.toEpochDay(),
-                monthEnd.toEpochDay(),
-            ).map { it.toDomain() }
+        val incomeTotal = transactionDao.getIncomeTotal(
+            monthStart.toEpochDay(),
+            monthEnd.toEpochDay(),
+        )
+        val expenseTotal = transactionDao.getExpenseTotal(
+            monthStart.toEpochDay(),
+            monthEnd.toEpochDay(),
+        )
 
-            val incomeTotal = transactionDao.getIncomeTotal(
-                monthStart.toEpochDay(),
-                monthEnd.toEpochDay(),
-            )
-            val expenseTotal = transactionDao.getExpenseTotal(
-                monthStart.toEpochDay(),
-                monthEnd.toEpochDay(),
-            )
+        val chartStart = today.minusMonths(6).with(TemporalAdjusters.firstDayOfMonth())
+        val chartEnd = today.plusMonths(6).with(TemporalAdjusters.lastDayOfMonth())
 
-            val chartStart = today.minusMonths(6).with(TemporalAdjusters.firstDayOfMonth())
-            val chartEnd = today.plusMonths(6).with(TemporalAdjusters.lastDayOfMonth())
+        val dailyTotals = transactionDao.getDailyExpenseTotals(
+            chartStart.toEpochDay(),
+            chartEnd.toEpochDay(),
+        )
 
-            val dailyTotals = transactionDao.getDailyExpenseTotals(
-                chartStart.toEpochDay(),
-                chartEnd.toEpochDay(),
-            )
+        val dailyIncomeTotals = transactionDao.getDailyIncomeTotals(
+            chartStart.toEpochDay(),
+            chartEnd.toEpochDay(),
+        )
 
-            val dailyIncomeTotals = transactionDao.getDailyIncomeTotals(
-                chartStart.toEpochDay(),
-                chartEnd.toEpochDay(),
-            )
-
-            val dailyExpenses = (dailyTotals.map { it.date } + dailyIncomeTotals.map { it.date })
-                .toSet()
-                .map { epochDay ->
-                    val localDate = LocalDate.ofEpochDay(epochDay)
-                    com.expensetracker.app.ui.components.DailyExpense(
-                        day = localDate.dayOfMonth,
-                        epochDay = epochDay,
-                        total = dailyTotals.find { it.date == epochDay }?.total ?: 0.0,
-                        income = dailyIncomeTotals.find { it.date == epochDay }?.total ?: 0.0,
-                    )
-                }
-
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    transactions = transactions,
-                    totalIncome = incomeTotal,
-                    totalExpense = expenseTotal,
-                    totalBalance = incomeTotal - expenseTotal,
-                    dailyExpenses = dailyExpenses,
+        val dailyExpenses = (dailyTotals.map { it.date } + dailyIncomeTotals.map { it.date })
+            .toSet()
+            .map { epochDay ->
+                val localDate = LocalDate.ofEpochDay(epochDay)
+                com.expensetracker.app.ui.components.DailyExpense(
+                    day = localDate.dayOfMonth,
+                    epochDay = epochDay,
+                    total = dailyTotals.find { it.date == epochDay }?.total ?: 0.0,
+                    income = dailyIncomeTotals.find { it.date == epochDay }?.total ?: 0.0,
                 )
             }
+
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                transactions = monthTransactions,
+                totalIncome = incomeTotal,
+                totalExpense = expenseTotal,
+                totalBalance = incomeTotal - expenseTotal,
+                dailyExpenses = dailyExpenses,
+            )
         }
     }
 
@@ -99,7 +99,6 @@ class HomeViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             val result = smsImportUseCase.importTransactions()
             _uiState.update { it.copy(isLoading = false, importResult = result) }
-            loadTransactions()
         }
     }
 
@@ -122,7 +121,6 @@ class HomeViewModel @Inject constructor(
     fun toggleExcluded(transactionId: Long, excluded: Boolean) {
         viewModelScope.launch {
             transactionDao.setExcluded(transactionId, excluded)
-            loadTransactions()
         }
     }
 
@@ -134,7 +132,6 @@ class HomeViewModel @Inject constructor(
                 aliasDao.delete(originalTitle)
             }
             transactionDao.applyAliasToAll(originalTitle, alias)
-            loadTransactions()
         }
     }
 }
