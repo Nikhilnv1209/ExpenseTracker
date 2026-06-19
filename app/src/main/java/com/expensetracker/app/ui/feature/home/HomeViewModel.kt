@@ -94,6 +94,11 @@ class HomeViewModel @Inject constructor(
             monthEnd.toEpochDay(),
         )
 
+        val categoryTotals = transactionDao.getCategoryTotals(
+            monthStart.toEpochDay(),
+            monthEnd.toEpochDay(),
+        )
+
         val chartStart = today.minusMonths(6).with(TemporalAdjusters.firstDayOfMonth())
         val chartEnd = today.plusMonths(6).with(TemporalAdjusters.lastDayOfMonth())
 
@@ -127,6 +132,7 @@ class HomeViewModel @Inject constructor(
                 totalExpense = expenseTotal,
                 totalBalance = incomeTotal - expenseTotal,
                 dailyExpenses = dailyExpenses,
+                categoryTotals = categoryTotals,
             )
         }
     }
@@ -286,6 +292,7 @@ data class HomeUiState(
     val totalExpense: Double = 0.0,
     val totalBalance: Double = 0.0,
     val dailyExpenses: List<com.expensetracker.app.ui.components.DailyExpense> = emptyList(),
+    val categoryTotals: List<com.expensetracker.app.data.local.TransactionDao.CategoryTotal> = emptyList(),
     val importResult: SmsImportResult? = null,
     val balanceMode: Int = 0,
     val filter: TransactionFilter = TransactionFilter(),

@@ -7,21 +7,30 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -68,8 +77,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -185,7 +199,7 @@ fun HomeScreen(
                     hasActiveFilter = uiState.filter != TransactionFilter(),
                 ) }
                 item { BalanceCard(selectedCurrency, uiState) { viewModel.cycleBalanceMode() } }
-                item { CalendarView(dailyExpenses = uiState.dailyExpenses, graphMode = uiState.balanceMode) }
+                item { GraphPager(uiState) }
                 item { RecentTransactionsHeader(onSeeAll = onSeeAll) }
 
                 if (uiState.isLoading) {
@@ -613,6 +627,300 @@ private fun ImportResultCard(
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF7C3AED),
             )
+        }
+    }
+}
+
+@Composable
+private fun GraphPager(uiState: HomeUiState) {
+    val pagerState = rememberPagerState(pageCount = { 2 })
+
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxWidth().height(290.dp),
+            ) { page ->
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when (page) {
+                        0 -> CalendarView(
+                            dailyExpenses = uiState.dailyExpenses,
+                            graphMode = uiState.balanceMode,
+                        )
+                        1 -> CategoryBreakdown(
+                            categoryTotals = uiState.categoryTotals,
+                            totalExpense = uiState.totalExpense,
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Trend",
+                    fontSize = 12.sp,
+                    fontWeight = if (pagerState.currentPage == 0) FontWeight.Bold else FontWeight.Normal,
+                    color = if (pagerState.currentPage == 0) Color(0xFF7C3AED) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    modifier = Modifier
+                        .clickable { }
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                repeat(2) { index ->
+                    Box(
+                        modifier = Modifier
+                            .size(if (pagerState.currentPage == index) 7.dp else 5.dp)
+                            .background(
+                                color = if (pagerState.currentPage == index) Color(0xFF7C3AED) else Color.White.copy(alpha = 0.3f),
+                                shape = CircleShape,
+                            ),
+                )
+                if (index < 1) Spacer(Modifier.width(4.dp))
+            }
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = "Category",
+                fontSize = 12.sp,
+                fontWeight = if (pagerState.currentPage == 1) FontWeight.Bold else FontWeight.Normal,
+                color = if (pagerState.currentPage == 1) Color(0xFF7C3AED) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                modifier = Modifier
+                    .clickable { }
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+            )
+        }
+        }
+    }
+}
+
+@Composable
+private fun CategoryBreakdown(
+    categoryTotals: List<com.expensetracker.app.data.local.TransactionDao.CategoryTotal>,
+    totalExpense: Double,
+) {
+    if (categoryTotals.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "No expenses this month",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            )
+        }
+    } else {
+        var selectedIndex by remember { mutableStateOf(-1) }
+
+        val total = categoryTotals.sumOf { it.total }.coerceAtLeast(0.001)
+        val arcs = categoryTotals.mapIndexed { i, item ->
+            val sweep = (item.total / total).toFloat() * 360f
+            val startAngle = if (i == 0) -90f else categoryTotals.take(i).sumOf { it.total } / total * 360f - 90f
+            Triple(i, startAngle.toFloat(), sweep.toFloat())
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "Spending by Category",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier.size(170.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                detectTapGestures { tapOffset ->
+                                    val cx = size.width / 2f
+                                    val cy = size.height / 2f
+                                    val dx = tapOffset.x - cx
+                                    val dy = tapOffset.y - cy
+                                    val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+                                    val strokePx = 24.dp.toPx()
+                                    val diameter = minOf(size.width, size.height) - strokePx
+                                    val innerR = diameter / 2f
+                                    val outerR = innerR + strokePx
+
+                                    if (dist in innerR..outerR || dist <= outerR) {
+                                        var angle = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                                        if (angle < -90f) angle += 360f
+                                        angle += 90f
+                                        if (angle >= 360f) angle -= 360f
+                                        if (angle < 0f) angle += 360f
+
+                                        val matched = arcs.indexOfFirst { (_, start, sweep) ->
+                                            val end = start + sweep
+                                            angle >= start && angle < end
+                                        }
+                                        selectedIndex = if (matched == selectedIndex) -1 else matched
+                                    }
+                                }
+                            },
+                    ) {
+                        val strokePx = 24.dp.toPx()
+                        val diameter = minOf(size.width, size.height) - strokePx
+                        val topLeft = androidx.compose.ui.geometry.Offset(
+                            (size.width - diameter) / 2f,
+                            (size.height - diameter) / 2f,
+                        )
+                        val arcSize = androidx.compose.ui.geometry.Size(diameter, diameter)
+
+                        categoryTotals.forEachIndexed { i, item ->
+                            val cat = Category.fromDisplayName(item.category)
+                            val color = categoryColor(cat)
+                            val (_, startAngle, sweep) = arcs[i]
+                            val isSelected = i == selectedIndex
+                            val isDimmed = selectedIndex != -1 && !isSelected
+
+                            drawArc(
+                                color = if (isDimmed) color.copy(alpha = 0.18f) else color,
+                                startAngle = startAngle,
+                                sweepAngle = sweep,
+                                useCenter = false,
+                                topLeft = topLeft,
+                                size = arcSize,
+                                style = Stroke(
+                                    width = if (isSelected) strokePx + 6.dp.toPx() else strokePx,
+                                    cap = StrokeCap.Round,
+                                ),
+                            )
+                        }
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (selectedIndex >= 0 && selectedIndex < categoryTotals.size) {
+                            val item = categoryTotals[selectedIndex]
+                            val cat = Category.fromDisplayName(item.category)
+                            val catColor = categoryColor(cat)
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(catColor.copy(alpha = 0.15f), CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = categoryIcon(cat),
+                                    contentDescription = null,
+                                    tint = catColor,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "₹${String.format("%.0f", item.total)}",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            val pct = if (totalExpense > 0) ((item.total / totalExpense) * 100).toInt() else 0
+                            Text(
+                                text = "$pct%",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            )
+                        } else {
+                            Text(
+                                text = "₹${String.format("%.0f", totalExpense)}",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "Total",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.width(10.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    categoryTotals.forEachIndexed { i, item ->
+                        val cat = Category.fromDisplayName(item.category)
+                        val catColor = categoryColor(cat)
+                        val isSelected = i == selectedIndex
+                        val percent = if (totalExpense > 0) ((item.total / totalExpense) * 100).toInt() else 0
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedIndex = if (isSelected) -1 else i }
+                                .padding(vertical = 3.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .background(
+                                        if (isSelected) catColor else catColor.copy(alpha = 0.5f),
+                                        CircleShape,
+                                    ),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = cat.displayName,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = "$percent%",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) catColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (selectedIndex >= 0 && selectedIndex < categoryTotals.size) {
+                Spacer(Modifier.height(10.dp))
+                val item = categoryTotals[selectedIndex]
+                val cat = Category.fromDisplayName(item.category)
+                Text(
+                    text = "${cat.displayName} · ₹${String.format("%.0f", item.total)}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = categoryColor(cat),
+                )
+            }
         }
     }
 }

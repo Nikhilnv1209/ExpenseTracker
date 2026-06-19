@@ -45,7 +45,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.expensetracker.app.ui.components.GlassCard
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.util.Calendar
@@ -89,31 +88,26 @@ fun CalendarView(
         counts.maxByOrNull { it.value }?.key ?: weekStart.get(Calendar.YEAR)
     }
 
-    GlassCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            MonthHeader(displayYear, displayMonth,
-                onPrev = {
-                    if (baseMonth == 0) { baseMonth = 11; baseYear-- } else baseMonth--
-                    weekOffset = 0; selectedDay = -1
-                },
-                onNext = {
-                    if (baseMonth == 11) { baseMonth = 0; baseYear++ } else baseMonth++
-                    weekOffset = 0; selectedDay = -1
-                },
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            LineChartView(
-                expenses = dailyExpenses,
-                weekStart = weekStart,
-                onSettle = { delta -> weekOffset += delta },
-                selectedDay = selectedDay,
-                onSelect = { selectedDay = it },
-                graphMode = graphMode,
-            )
-        }
+    Column(modifier = Modifier.padding(16.dp)) {
+        MonthHeader(displayYear, displayMonth,
+            onPrev = {
+                if (baseMonth == 0) { baseMonth = 11; baseYear-- } else baseMonth--
+                weekOffset = 0; selectedDay = -1
+            },
+            onNext = {
+                if (baseMonth == 11) { baseMonth = 0; baseYear++ } else baseMonth++
+                weekOffset = 0; selectedDay = -1
+            },
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        LineChartView(
+            expenses = dailyExpenses,
+            weekStart = weekStart,
+            onSettle = { delta -> weekOffset += delta },
+            selectedDay = selectedDay,
+            onSelect = { selectedDay = it },
+            graphMode = graphMode,
+        )
     }
 }
 

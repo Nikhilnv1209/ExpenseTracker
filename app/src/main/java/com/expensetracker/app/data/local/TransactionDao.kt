@@ -124,8 +124,20 @@ interface TransactionDao {
     @Query("UPDATE transactions SET isExcluded = :excluded WHERE title = :title")
     suspend fun setExcludedByTitle(title: String, excluded: Boolean)
 
+    @Query("""
+        SELECT category, COALESCE(SUM(amount), 0.0) as total FROM transactions
+        WHERE type = 'EXPENSE' AND isExcluded = 0 AND date >= :startDate AND date <= :endDate
+        GROUP BY category ORDER BY total DESC
+    """)
+    suspend fun getCategoryTotals(startDate: Long, endDate: Long): List<CategoryTotal>
+
     data class DailyTotal(
         val date: Long,
+        val total: Double,
+    )
+
+    data class CategoryTotal(
+        val category: String,
         val total: Double,
     )
 }
