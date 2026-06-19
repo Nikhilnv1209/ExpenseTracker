@@ -960,7 +960,11 @@ private fun TransactionItem(transaction: Transaction, currency: Currency, onClic
     GlassCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
         shape = RoundedCornerShape(16.dp),
         tint = catColor,
         tintAlpha = 0.08f,
