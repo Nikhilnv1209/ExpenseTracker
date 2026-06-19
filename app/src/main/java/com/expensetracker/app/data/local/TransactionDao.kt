@@ -90,6 +90,12 @@ interface TransactionDao {
     @Query("UPDATE transactions SET category = :category WHERE id = :id")
     suspend fun updateCategory(id: Long, category: String)
 
+    @Query("UPDATE transactions SET category = :category WHERE title = :title AND categoryExempt = 0")
+    suspend fun applyCategoryToAll(title: String, category: String)
+
+    @Query("UPDATE transactions SET categoryExempt = :exempt WHERE id = :id")
+    suspend fun setCategoryExempt(id: Long, exempt: Boolean)
+
     @Query("UPDATE transactions SET note = :note WHERE id = :id")
     suspend fun setNote(id: Long, note: String?)
 

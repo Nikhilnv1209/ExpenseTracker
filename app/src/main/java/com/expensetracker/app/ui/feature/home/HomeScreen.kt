@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Brightness3
+import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.FilterList
@@ -116,6 +117,7 @@ fun HomeScreen(
     onViewExcluded: () -> Unit = {},
     onManageAliases: () -> Unit = {},
     onIgnoredSenders: () -> Unit = {},
+    onCategoryRules: () -> Unit = {},
     onOpenAgent: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -248,6 +250,10 @@ fun HomeScreen(
                     showSettings = false
                     onIgnoredSenders()
                 },
+                onCategoryRules = {
+                    showSettings = false
+                    onCategoryRules()
+                },
                 onOpenAgent = {
                     showSettings = false
                     onOpenAgent()
@@ -282,9 +288,16 @@ fun HomeScreen(
         }
 
         selectedTransaction?.let { txn ->
+            val categoryRule by androidx.compose.runtime.produceState(
+                initialValue = null as Category?,
+                key1 = txn.title,
+            ) {
+                value = viewModel.getCategoryRule(txn.title)
+            }
             TransactionDetailSheet(
                 transaction = txn,
                 currency = selectedCurrency,
+                categoryRule = categoryRule,
                 onToggleExcluded = { excluded ->
                     viewModel.toggleExcluded(txn.id, excluded)
                     selectedTransaction = null
@@ -295,6 +308,14 @@ fun HomeScreen(
                 },
                 onSetNote = { note ->
                     viewModel.setNote(txn.id, note)
+                    selectedTransaction = null
+                },
+                onSetCategory = { category, applyToAll ->
+                    viewModel.setCategory(txn.id, txn.title, category, applyToAll)
+                    selectedTransaction = null
+                },
+                onSetCategoryExempt = { exempt ->
+                    viewModel.setCategoryExempt(txn.id, txn.title, exempt)
                     selectedTransaction = null
                 },
             )
@@ -712,6 +733,7 @@ private fun SettingsSheet(
     onViewExcluded: () -> Unit,
     onManageAliases: () -> Unit,
     onIgnoredSenders: () -> Unit,
+    onCategoryRules: () -> Unit,
     onOpenAgent: () -> Unit,
     onImportSms: () -> Unit,
     onExportSms: () -> Unit,
@@ -733,6 +755,7 @@ private fun SettingsSheet(
             onViewExcluded = onViewExcluded,
             onManageAliases = onManageAliases,
             onIgnoredSenders = onIgnoredSenders,
+            onCategoryRules = onCategoryRules,
             onOpenAgent = onOpenAgent,
             onImportSms = onImportSms,
             onExportSms = onExportSms,
@@ -747,6 +770,7 @@ private fun SettingsContent(
     onViewExcluded: () -> Unit,
     onManageAliases: () -> Unit,
     onIgnoredSenders: () -> Unit,
+    onCategoryRules: () -> Unit,
     onOpenAgent: () -> Unit,
     onImportSms: () -> Unit,
     onExportSms: () -> Unit,
@@ -779,6 +803,13 @@ private fun SettingsContent(
             title = "Manage Aliases",
             subtitle = "Rename and organize transaction titles",
             onClick = onManageAliases,
+        )
+
+        SettingsRow(
+            icon = Icons.Rounded.Category,
+            title = "Category Rules",
+            subtitle = "Auto-categorize transactions by sender",
+            onClick = onCategoryRules,
         )
 
         SettingsRow(

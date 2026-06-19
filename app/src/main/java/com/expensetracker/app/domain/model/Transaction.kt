@@ -40,4 +40,5 @@ data class Transaction(
     val smsDate: Long? = null,
     val isExcluded: Boolean = false,
     val alias: String? = null,
+    val categoryExempt: Boolean = false,
 )

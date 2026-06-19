@@ -19,6 +19,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.expensetracker.app.ui.feature.agent.AgentChatScreen
 import com.expensetracker.app.ui.feature.aliases.AliasesScreen
+import com.expensetracker.app.ui.feature.categoryrules.CategoryRulesScreen
 import com.expensetracker.app.ui.feature.excluded.ExcludedTransactionsScreen
 import com.expensetracker.app.ui.feature.home.HomeScreen
 import com.expensetracker.app.ui.feature.ignored.IgnoredSendersScreen
@@ -79,6 +80,7 @@ class MainActivity : ComponentActivity() {
                                 onViewExcluded = { navController.navigate("excluded") },
                                 onManageAliases = { navController.navigate("aliases") },
                                 onIgnoredSenders = { navController.navigate("ignored") },
+                                onCategoryRules = { navController.navigate("category_rules") },
                                 onOpenAgent = { navController.navigate("agent") },
                             )
                         }
@@ -93,6 +95,9 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("ignored") {
                             IgnoredSendersScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable("category_rules") {
+                            CategoryRulesScreen(onBack = { navController.popBackStack() })
                         }
                         composable("agent") {
                             AgentChatScreen(onBack = { navController.popBackStack() })

@@ -4,9 +4,12 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensetracker.app.data.local.AliasDao
+import com.expensetracker.app.data.local.CategoryRuleDao
+import com.expensetracker.app.data.local.CategoryRuleEntity
 import com.expensetracker.app.data.local.TransactionDao
 import com.expensetracker.app.data.local.toDomain
 import com.expensetracker.app.data.local.toEntity
+import com.expensetracker.app.domain.model.Category
 import com.expensetracker.app.domain.model.Transaction
 import com.expensetracker.app.sms.SmsImportResult
 import com.expensetracker.app.sms.SmsImportUseCase
@@ -26,6 +29,7 @@ class HomeViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val transactionDao: TransactionDao,
     private val aliasDao: AliasDao,
+    private val categoryRuleDao: CategoryRuleDao,
     private val smsImportUseCase: SmsImportUseCase,
     private val smsExportUseCase: com.expensetracker.app.sms.SmsExportUseCase,
 ) : ViewModel() {
@@ -56,7 +60,9 @@ class HomeViewModel @Inject constructor(
         isRefreshing = true
         _uiState.update { it.copy(isRefreshing = true) }
         viewModelScope.launch {
+            val importJob = launch { smsImportUseCase.importTransactions() }
             kotlinx.coroutines.delay(800)
+            importJob.join()
             val currentFilter = _uiState.value.filter
             if (currentFilter == TransactionFilter()) {
                 val entities = transactionDao.getAllSorted()
@@ -170,6 +176,34 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             transactionDao.setNote(transactionId, note?.trim()?.ifBlank { null })
         }
+    }
+
+    fun setCategory(transactionId: Long, title: String, category: Category, applyToAll: Boolean) {
+        viewModelScope.launch {
+            if (applyToAll) {
+                categoryRuleDao.upsert(CategoryRuleEntity(title, category.displayName))
+                transactionDao.applyCategoryToAll(title, category.displayName)
+                transactionDao.setCategoryExempt(transactionId, false)
+            } else {
+                transactionDao.updateCategory(transactionId, category.displayName)
+                transactionDao.setCategoryExempt(transactionId, true)
+            }
+        }
+    }
+
+    fun setCategoryExempt(transactionId: Long, title: String, exempt: Boolean) {
+        viewModelScope.launch {
+            transactionDao.setCategoryExempt(transactionId, exempt)
+            if (!exempt) {
+                categoryRuleDao.findByTitle(title)?.let { rule ->
+                    transactionDao.updateCategory(transactionId, rule.category)
+                }
+            }
+        }
+    }
+
+    suspend fun getCategoryRule(title: String): Category? {
+        return categoryRuleDao.findByTitle(title)?.category?.let { Category.fromDisplayName(it) }
     }
 
     fun cycleBalanceMode() {

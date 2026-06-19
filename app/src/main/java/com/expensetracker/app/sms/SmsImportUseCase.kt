@@ -2,6 +2,7 @@ package com.expensetracker.app.sms
 
 import android.util.Log
 import com.expensetracker.app.data.local.AliasDao
+import com.expensetracker.app.data.local.CategoryRuleDao
 import com.expensetracker.app.data.local.IgnoredSenderDao
 import com.expensetracker.app.data.local.TransactionDao
 import com.expensetracker.app.data.local.toEntity
@@ -17,6 +18,7 @@ class SmsImportUseCase @Inject constructor(
     private val transactionDao: TransactionDao,
     private val aliasDao: AliasDao,
     private val ignoredSenderDao: IgnoredSenderDao,
+    private val categoryRuleDao: CategoryRuleDao,
 ) {
 
     suspend fun importTransactions(): SmsImportResult {
@@ -41,10 +43,17 @@ class SmsImportUseCase @Inject constructor(
             val existing = parsedTx.smsDate?.let { transactionDao.findBySmsDate(it) }
             val resolvedAlias = aliases[parsedTx.description]
             if (existing != null) {
+                val keepCategory = existing.categoryExempt
+                val resolvedCategory = if (keepCategory) {
+                    Category.fromDisplayName(existing.category)
+                } else {
+                    categoryRuleDao.findByTitle(parsedTx.description)?.category
+                        ?.let { Category.fromDisplayName(it) } ?: parsedTx.category
+                }
                 val updated = existing.copy(
                     title = parsedTx.description,
                     amount = parsedTx.amount,
-                    category = parsedTx.category.displayName,
+                    category = resolvedCategory.displayName,
                     type = if (parsedTx.type == TransactionType.CREDIT) "INCOME" else "EXPENSE",
                     bankName = parsedTx.bankName,
                     accountLast4 = parsedTx.accountLast4,
@@ -56,10 +65,13 @@ class SmsImportUseCase @Inject constructor(
                 return@forEach
             }
 
+            val ruleCategory = categoryRuleDao.findByTitle(parsedTx.description)?.category
+                ?.let { Category.fromDisplayName(it) } ?: parsedTx.category
+
             val transaction = Transaction(
                 title = parsedTx.description,
                 amount = parsedTx.amount,
-                category = parsedTx.category,
+                category = ruleCategory,
                 isIncome = parsedTx.type == TransactionType.CREDIT,
                 date = parsedTx.date,
                 note = buildNote(parsedTx),

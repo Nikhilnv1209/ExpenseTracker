@@ -43,6 +43,7 @@ class SmsReceiver : BroadcastReceiver() {
                 val transactionDao = app.transactionDao
                 val aliasDao = app.aliasDao
                 val ignoredSenderDao = app.ignoredSenderDao
+                val categoryRuleDao = app.categoryRuleDao
 
                 val ignoredSenders = ignoredSenderDao.getAll().map { it.sender.lowercase() }.toSet()
                 if (parsed.description.lowercase() in ignoredSenders) {
@@ -57,10 +58,12 @@ class SmsReceiver : BroadcastReceiver() {
                 }
 
                 val resolvedAlias = aliasDao.findByOriginalTitle(parsed.description)?.alias
+                val ruleCategory = categoryRuleDao.findByTitle(parsed.description)?.category
+                    ?.let { Category.fromDisplayName(it) } ?: parsed.category
                 val transaction = com.expensetracker.app.domain.model.Transaction(
                     title = parsed.description,
                     amount = parsed.amount,
-                    category = parsed.category,
+                    category = ruleCategory,
                     isIncome = parsed.type == TransactionType.CREDIT,
                     date = parsed.date,
                     note = buildString {
