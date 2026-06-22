@@ -124,21 +124,47 @@ object TransactionNotificationHelper {
         title: String,
         amount: Double,
         isIncome: Boolean,
-        paymentDay: Int,
+        paymentDateEpochDay: Long,
+        transactionId: Long,
         notificationId: Int = NOTIFICATION_ID_REMINDER,
     ) {
-        val sign = if (isIncome) "+" else "-"
-        val content = "$sign₹${String.format("%.0f", amount)} · $title · payment on day $paymentDay"
+        val today = java.time.LocalDate.now()
+        val paymentDate = java.time.LocalDate.ofEpochDay(paymentDateEpochDay)
+        val dayDiff = java.time.temporal.ChronoUnit.DAYS.between(today, paymentDate)
+
+        val verb = if (isIncome) "Expected" else "Due"
+        val dateText = when {
+            dayDiff <= 0L -> "$verb today"
+            dayDiff == 1L -> "$verb tomorrow"
+            dayDiff <= 7L -> "$verb in $dayDiff days"
+            else -> "$verb on ${paymentDate.dayOfMonth} ${paymentDate.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())}"
+        }
+
+        val content = "$title · ₹${String.format("%.0f", amount)} · $dateText"
+
+        val openIntent = android.content.Intent(context, com.expensetracker.app.MainActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_TRANSACTION_ID, transactionId)
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            context,
+            transactionId.toInt(),
+            openIntent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_REMINDER)
             .setSmallIcon(R.mipmap.ic_launcher_foreground)
-            .setContentTitle("Upcoming payment reminder")
+            .setContentTitle(if (isIncome) "Payment expected" else "Payment reminder")
             .setContentText(content)
             .setStyle(NotificationCompat.BigTextStyle().bigText(content))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(notificationId, builder.build())
     }
+
+    const val EXTRA_TRANSACTION_ID = "extra_transaction_id"
 }

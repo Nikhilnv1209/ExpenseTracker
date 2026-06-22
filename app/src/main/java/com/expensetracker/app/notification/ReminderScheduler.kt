@@ -27,12 +27,19 @@ object ReminderScheduler {
             return
         }
 
+        val paymentDateEpochDay = if (reminder.customDate != null) {
+            reminder.customDate
+        } else {
+            triggerDate.plusDays(reminder.daysBefore.toLong()).toEpochDay()
+        }
+
         val intent = Intent(context, ReminderAlarmReceiver::class.java).apply {
             putExtra(ReminderAlarmReceiver.EXTRA_TITLE, reminder.title)
             putExtra(ReminderAlarmReceiver.EXTRA_AMOUNT, reminder.amount)
             putExtra(ReminderAlarmReceiver.EXTRA_IS_INCOME, reminder.isIncome)
-            putExtra(ReminderAlarmReceiver.EXTRA_PAYMENT_DAY, reminder.paymentDayOfMonth)
+            putExtra(ReminderAlarmReceiver.EXTRA_PAYMENT_DATE, paymentDateEpochDay)
             putExtra(ReminderAlarmReceiver.EXTRA_REMINDER_ID, reminder.id)
+            putExtra(ReminderAlarmReceiver.EXTRA_TRANSACTION_ID, reminder.transactionId)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(

@@ -68,6 +68,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -165,6 +166,22 @@ fun HomeScreen(
     }
 
     var exportMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(uiState.transactions) {
+        val activity = context as? android.app.Activity
+        val txnId = activity?.intent?.getLongExtra(
+            com.expensetracker.app.notification.TransactionNotificationHelper.EXTRA_TRANSACTION_ID,
+            -1L,
+        ) ?: -1L
+        if (txnId != -1L) {
+            uiState.transactions.find { it.id == txnId }?.let { txn ->
+                selectedTransaction = txn
+                activity?.intent?.removeExtra(
+                    com.expensetracker.app.notification.TransactionNotificationHelper.EXTRA_TRANSACTION_ID,
+                )
+            }
+        }
+    }
 
     val isSheetOpen = showSettings || selectedTransaction != null || showFilter
     BackHandler(enabled = isSheetOpen) {

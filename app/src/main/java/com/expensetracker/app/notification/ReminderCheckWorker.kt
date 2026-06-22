@@ -40,12 +40,18 @@ class ReminderCheckWorker(
             }
 
             if (shouldFire) {
+                val paymentDateEpochDay = if (reminder.customDate != null) {
+                    reminder.customDate
+                } else {
+                    today.toEpochDay() + reminder.daysBefore
+                }
                 TransactionNotificationHelper.showReminderNotification(
                     context = applicationContext,
                     title = reminder.title,
                     amount = reminder.amount,
                     isIncome = reminder.isIncome,
-                    paymentDay = reminder.paymentDayOfMonth,
+                    paymentDateEpochDay = paymentDateEpochDay,
+                    transactionId = reminder.transactionId,
                 )
             }
         }
