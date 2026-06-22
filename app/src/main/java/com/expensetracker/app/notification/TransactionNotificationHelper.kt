@@ -11,8 +11,10 @@ object TransactionNotificationHelper {
 
     private const val CHANNEL_ID_NEW = "new_transaction_channel"
     private const val CHANNEL_ID_SUMMARY = "daily_summary_channel"
+    private const val CHANNEL_ID_REMINDER = "reminder_channel"
     private const val NOTIFICATION_ID_NEW = 1001
     private const val NOTIFICATION_ID_SUMMARY = 1002
+    private const val NOTIFICATION_ID_REMINDER = 1003
     private const val PREFS_NAME = "notification_prefs"
     private const val KEY_NOTIFIED_IDS = "notified_transaction_ids"
     private const val MAX_TRACKED_IDS = 100
@@ -34,7 +36,13 @@ object TransactionNotificationHelper {
             NotificationManager.IMPORTANCE_DEFAULT,
         ).apply { description = "End-of-day spending summary" }
 
-        manager?.createNotificationChannels(listOf(newChannel, summaryChannel))
+        val reminderChannel = NotificationChannel(
+            CHANNEL_ID_REMINDER,
+            "Payment Reminders",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply { description = "Reminders for upcoming subscription payments" }
+
+        manager?.createNotificationChannels(listOf(newChannel, summaryChannel, reminderChannel))
     }
 
     fun showNewTransactionNotification(
@@ -109,5 +117,28 @@ object TransactionNotificationHelper {
             current.addAll(sorted.map { it.toString() })
         }
         prefs.edit().putStringSet(KEY_NOTIFIED_IDS, current).apply()
+    }
+
+    fun showReminderNotification(
+        context: Context,
+        title: String,
+        amount: Double,
+        isIncome: Boolean,
+        paymentDay: Int,
+        notificationId: Int = NOTIFICATION_ID_REMINDER,
+    ) {
+        val sign = if (isIncome) "+" else "-"
+        val content = "$sign₹${String.format("%.0f", amount)} · $title · payment on day $paymentDay"
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID_REMINDER)
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
+            .setContentTitle("Upcoming payment reminder")
+            .setContentText(content)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(content))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(notificationId, builder.build())
     }
 }

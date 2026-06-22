@@ -6,11 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.expensetracker.app.data.local.AliasDao
 import com.expensetracker.app.data.local.CategoryRuleDao
 import com.expensetracker.app.data.local.CategoryRuleEntity
+import com.expensetracker.app.data.local.ReminderDao
+import com.expensetracker.app.data.local.ReminderEntity
 import com.expensetracker.app.data.local.TransactionDao
 import com.expensetracker.app.data.local.toDomain
 import com.expensetracker.app.data.local.toEntity
 import com.expensetracker.app.domain.model.Category
 import com.expensetracker.app.domain.model.Transaction
+import com.expensetracker.app.notification.ReminderScheduler
 import com.expensetracker.app.sms.SmsImportResult
 import com.expensetracker.app.sms.SmsImportUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,6 +33,7 @@ class HomeViewModel @Inject constructor(
     private val transactionDao: TransactionDao,
     private val aliasDao: AliasDao,
     private val categoryRuleDao: CategoryRuleDao,
+    private val reminderDao: ReminderDao,
     private val smsImportUseCase: SmsImportUseCase,
     private val smsExportUseCase: com.expensetracker.app.sms.SmsExportUseCase,
 ) : ViewModel() {
@@ -210,6 +214,58 @@ class HomeViewModel @Inject constructor(
 
     suspend fun getCategoryRule(title: String): Category? {
         return categoryRuleDao.findByTitle(title)?.category?.let { Category.fromDisplayName(it) }
+    }
+
+    fun setReminder(transaction: Transaction, daysBefore: Int, customDate: Long? = null, hour: Int = 9, minute: Int = 0) {
+        viewModelScope.launch {
+            val existing = reminderDao.findByTransactionId(transaction.id)
+            val id = reminderDao.upsert(
+                ReminderEntity(
+                    id = existing?.id ?: 0,
+                    transactionId = transaction.id,
+                    title = transaction.alias ?: transaction.title,
+                    amount = transaction.amount,
+                    isIncome = transaction.isIncome,
+                    paymentDayOfMonth = transaction.date.dayOfMonth,
+                    daysBefore = daysBefore,
+                    customDate = customDate,
+                    hour = hour,
+                    minute = minute,
+                ),
+            )
+            val saved = existing?.copy(
+                daysBefore = daysBefore,
+                customDate = customDate,
+                hour = hour,
+                minute = minute,
+            ) ?: ReminderEntity(
+                id = id,
+                transactionId = transaction.id,
+                title = transaction.alias ?: transaction.title,
+                amount = transaction.amount,
+                isIncome = transaction.isIncome,
+                paymentDayOfMonth = transaction.date.dayOfMonth,
+                daysBefore = daysBefore,
+                customDate = customDate,
+                hour = hour,
+                minute = minute,
+            )
+            ReminderScheduler.schedule(appContext, saved)
+        }
+    }
+
+    fun removeReminder(transactionId: Long) {
+        viewModelScope.launch {
+            val existing = reminderDao.findByTransactionId(transactionId)
+            if (existing != null) {
+                ReminderScheduler.cancel(appContext, existing.id)
+            }
+            reminderDao.deleteByTransactionId(transactionId)
+        }
+    }
+
+    suspend fun getReminder(transactionId: Long): ReminderEntity? {
+        return reminderDao.findByTransactionId(transactionId)
     }
 
     fun cycleBalanceMode() {

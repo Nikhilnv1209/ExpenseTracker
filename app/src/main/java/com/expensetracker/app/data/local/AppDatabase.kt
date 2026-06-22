@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [TransactionEntity::class, AliasEntity::class, IgnoredSenderEntity::class, CategoryRuleEntity::class],
-    version = 6,
+    entities = [TransactionEntity::class, AliasEntity::class, IgnoredSenderEntity::class, CategoryRuleEntity::class, ReminderEntity::class],
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -17,6 +17,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun aliasDao(): AliasDao
     abstract fun ignoredSenderDao(): IgnoredSenderDao
     abstract fun categoryRuleDao(): CategoryRuleDao
+    abstract fun reminderDao(): ReminderDao
 
     companion object {
         private const val DATABASE_NAME = "expense_tracker.db"
@@ -56,6 +57,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS reminders (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, transactionId INTEGER NOT NULL, title TEXT NOT NULL, amount REAL NOT NULL, isIncome INTEGER NOT NULL, paymentDayOfMonth INTEGER NOT NULL, daysBefore INTEGER NOT NULL)")
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE reminders ADD COLUMN customDate INTEGER")
+                db.execSQL("ALTER TABLE reminders ADD COLUMN hour INTEGER NOT NULL DEFAULT 9")
+                db.execSQL("ALTER TABLE reminders ADD COLUMN minute INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -63,7 +78,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME,
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .build()
                     .also { instance = it }
             }

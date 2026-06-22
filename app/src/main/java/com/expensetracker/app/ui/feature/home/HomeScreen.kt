@@ -309,10 +309,17 @@ fun HomeScreen(
             ) {
                 value = viewModel.getCategoryRule(txn.title)
             }
+            val reminder by androidx.compose.runtime.produceState(
+                initialValue = null as com.expensetracker.app.data.local.ReminderEntity?,
+                key1 = txn.id,
+            ) {
+                value = viewModel.getReminder(txn.id)
+            }
             TransactionDetailSheet(
                 transaction = txn,
                 currency = selectedCurrency,
                 categoryRule = categoryRule,
+                reminder = reminder,
                 onToggleExcluded = { excluded ->
                     viewModel.toggleExcluded(txn.id, excluded)
                     selectedTransaction = null
@@ -331,6 +338,14 @@ fun HomeScreen(
                 },
                 onSetCategoryExempt = { exempt ->
                     viewModel.setCategoryExempt(txn.id, txn.title, exempt)
+                    selectedTransaction = null
+                },
+                onSetReminder = { daysBefore, customDate, hour, minute ->
+                    viewModel.setReminder(txn, daysBefore, customDate, hour, minute)
+                    selectedTransaction = null
+                },
+                onRemoveReminder = {
+                    viewModel.removeReminder(txn.id)
                     selectedTransaction = null
                 },
             )

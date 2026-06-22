@@ -9,9 +9,15 @@ import android.provider.Telephony
 import android.util.Log
 import com.expensetracker.app.data.local.AppDatabase
 import com.expensetracker.app.notification.DailySummaryWorker
+import com.expensetracker.app.notification.ReminderCheckWorker
+import com.expensetracker.app.notification.ReminderScheduler
 import com.expensetracker.app.notification.TransactionNotificationHelper
 import com.expensetracker.app.sms.SmsReceiver
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @HiltAndroidApp
 class ExpenseTrackerApplication : Application() {
@@ -19,6 +25,7 @@ class ExpenseTrackerApplication : Application() {
     val aliasDao by lazy { AppDatabase.getInstance(this).aliasDao() }
     val ignoredSenderDao by lazy { AppDatabase.getInstance(this).ignoredSenderDao() }
     val categoryRuleDao by lazy { AppDatabase.getInstance(this).categoryRuleDao() }
+    val reminderDao by lazy { AppDatabase.getInstance(this).reminderDao() }
 
     private var smsReceiver: SmsReceiver? = null
 
@@ -26,6 +33,12 @@ class ExpenseTrackerApplication : Application() {
         super.onCreate()
         TransactionNotificationHelper.createChannels(this)
         DailySummaryWorker.schedule(this)
+
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            reminderDao.getAll().forEach { reminder ->
+                ReminderScheduler.schedule(this@ExpenseTrackerApplication, reminder)
+            }
+        }
     }
 
     fun registerSmsReceiverIfNeeded() {
