@@ -36,6 +36,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
@@ -94,8 +97,11 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.expensetracker.app.domain.model.Category
 import com.expensetracker.app.domain.model.Transaction
+import com.expensetracker.app.ui.components.AddTransactionSheet
 import com.expensetracker.app.ui.components.CalendarView
 import com.expensetracker.app.ui.components.DailyExpense
+import com.expensetracker.app.ui.components.ExpandableFab
+import com.expensetracker.app.ui.components.FabAction
 import com.expensetracker.app.ui.components.GlassCard
 import com.expensetracker.app.ui.components.LiquidGlassLayout
 import com.expensetracker.app.ui.components.TransactionDetailSheet
@@ -152,6 +158,16 @@ fun HomeScreen(
     var showSettings by remember { mutableStateOf(false) }
     var showFilter by remember { mutableStateOf(false) }
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
+    var showAddTransaction by remember { mutableStateOf(false) }
+    var addTransactionIsIncome by remember { mutableStateOf(false) }
+    var addTransactionContent by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showAddTransaction) {
+        if (!showAddTransaction && addTransactionContent) {
+            kotlinx.coroutines.delay(350)
+            addTransactionContent = false
+        }
+    }
 
     val smsPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -183,11 +199,12 @@ fun HomeScreen(
         }
     }
 
-    val isSheetOpen = showSettings || selectedTransaction != null || showFilter
+    val isSheetOpen = showSettings || selectedTransaction != null || showFilter || showAddTransaction
     BackHandler(enabled = isSheetOpen) {
         showSettings = false
         showFilter = false
         selectedTransaction = null
+        showAddTransaction = false
     }
 
     LiquidGlassLayout(
@@ -196,8 +213,10 @@ fun HomeScreen(
             showSettings = false
             showFilter = false
             selectedTransaction = null
+            showAddTransaction = false
         },
         mainContent = {
+            Box(modifier = Modifier.fillMaxSize()) {
             PullToRefreshBox(
                 isRefreshing = uiState.isRefreshing,
                 onRefresh = { viewModel.refresh() },
@@ -247,6 +266,32 @@ fun HomeScreen(
                 }
 
                 item { Spacer(modifier = Modifier.height(16.dp)) }
+            }
+            }
+
+            if (!isSheetOpen) {
+                ExpandableFab(
+                    actions = listOf(
+                        FabAction(
+                            label = "Income",
+                            icon = Icons.Rounded.ArrowUpward,
+                            color = Color(0xFF4CAF50),
+                        ) {
+                            addTransactionIsIncome = true
+                            addTransactionContent = true
+                            showAddTransaction = true
+                        },
+                        FabAction(
+                            label = "Expense",
+                            icon = Icons.Rounded.ArrowDownward,
+                            color = Color(0xFFFF5722),
+                        ) {
+                            addTransactionIsIncome = false
+                            addTransactionContent = true
+                            showAddTransaction = true
+                        },
+                    ),
+                )
             }
             }
         },
@@ -365,6 +410,17 @@ fun HomeScreen(
                     viewModel.removeReminder(txn.id)
                     selectedTransaction = null
                 },
+            )
+        }
+
+        if (addTransactionContent) {
+            AddTransactionSheet(
+                isIncome = addTransactionIsIncome,
+                onSave = { title, amount, category, date, note ->
+                    viewModel.addTransaction(title, amount, category, addTransactionIsIncome, date, note)
+                    showAddTransaction = false
+                },
+                onDismiss = { showAddTransaction = false },
             )
         }
     }

@@ -1,12 +1,12 @@
 package com.expensetracker.app.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,19 +43,30 @@ fun LiquidGlassLayout(
     sheetContent: @Composable ColumnScope.() -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val animatedBlur by animateDpAsState(
+            targetValue = if (isSheetOpen) blurRadius else 0.dp,
+            animationSpec = tween(350),
+            label = "blur",
+        )
+        val overlayAlpha by animateFloatAsState(
+            targetValue = if (isSheetOpen) 0.12f else 0f,
+            animationSpec = tween(350),
+            label = "overlay",
+        )
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (isSheetOpen) Modifier.blur(blurRadius) else Modifier),
+                .then(if (animatedBlur > 0.dp) Modifier.blur(animatedBlur) else Modifier),
         ) {
             mainContent()
         }
 
-        if (isSheetOpen) {
+        if (overlayAlpha > 0f) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.12f))
+                    .background(Color.Black.copy(alpha = overlayAlpha))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -68,12 +80,12 @@ fun LiquidGlassLayout(
             visible = isSheetOpen,
             enter = slideInVertically(
                 initialOffsetY = { it },
-                animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium),
-            ) + fadeIn(),
+                animationSpec = tween(350),
+            ),
             exit = slideOutVertically(
                 targetOffsetY = { it },
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
-            ) + fadeOut(),
+                animationSpec = tween(350),
+            ),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .zIndex(2f),

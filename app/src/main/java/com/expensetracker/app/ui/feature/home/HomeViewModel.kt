@@ -268,6 +268,29 @@ class HomeViewModel @Inject constructor(
         return reminderDao.findByTransactionId(transactionId)
     }
 
+    fun addTransaction(
+        title: String,
+        amount: Double,
+        category: Category,
+        isIncome: Boolean,
+        date: LocalDate,
+        note: String?,
+    ) {
+        viewModelScope.launch {
+            transactionDao.insert(
+                Transaction(
+                    title = title,
+                    amount = amount,
+                    category = category,
+                    isIncome = isIncome,
+                    date = date,
+                    note = note,
+                    noteIsManual = note != null,
+                ).toEntity(),
+            )
+        }
+    }
+
     fun cycleBalanceMode() {
         val newMode = (_uiState.value.balanceMode + 1) % 3
         prefs.edit().putInt("balanceMode", newMode).apply()
