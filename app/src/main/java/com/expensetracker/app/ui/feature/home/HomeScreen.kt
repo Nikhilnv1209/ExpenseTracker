@@ -616,7 +616,11 @@ private fun RecentTransactionsHeader(onSeeAll: () -> Unit) {
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color(0xFF7C3AED),
-            modifier = Modifier.clickable(onClick = onSeeAll),
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onSeeAll,
+            ),
         )
     }
 }
@@ -704,7 +708,7 @@ private fun GraphPager(uiState: HomeUiState) {
                     fontWeight = if (pagerState.currentPage == 0) FontWeight.Bold else FontWeight.Normal,
                     color = if (pagerState.currentPage == 0) Color(0xFF7C3AED) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                     modifier = Modifier
-                        .clickable { }
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
                         .padding(horizontal = 12.dp, vertical = 4.dp),
                 )
                 Spacer(Modifier.width(4.dp))
@@ -726,7 +730,7 @@ private fun GraphPager(uiState: HomeUiState) {
                 fontWeight = if (pagerState.currentPage == 1) FontWeight.Bold else FontWeight.Normal,
                 color = if (pagerState.currentPage == 1) Color(0xFF7C3AED) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                 modifier = Modifier
-                    .clickable { }
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
             )
         }
@@ -910,7 +914,7 @@ private fun CategoryBreakdown(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { selectedIndex = if (isSelected) -1 else i }
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { selectedIndex = if (isSelected) -1 else i }
                                 .padding(vertical = 3.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -1280,7 +1284,7 @@ private fun CurrencyPickerSheet(current: Currency, onSelect: (Currency) -> Unit)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onSelect(currency) }
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(currency) }
                     .padding(vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

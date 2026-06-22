@@ -243,7 +243,10 @@ fun TransactionDetailSheet(
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             modifier = Modifier
-                                .clickable { isEditingAlias = false; aliasText = transaction.alias ?: "" }
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) { isEditingAlias = false; aliasText = transaction.alias ?: "" }
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                         )
                         Spacer(Modifier.width(8.dp))
@@ -253,7 +256,7 @@ fun TransactionDetailSheet(
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF7C3AED),
                             modifier = Modifier
-                                .clickable {
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                     val trimmed = aliasText.trim()
                                     onSetAlias(trimmed.ifBlank { null })
                                     isEditingAlias = false
@@ -266,7 +269,7 @@ fun TransactionDetailSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { isEditingAlias = true }
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { isEditingAlias = true }
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -309,7 +312,7 @@ fun TransactionDetailSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { activeView = DetailView.CATEGORY }
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { activeView = DetailView.CATEGORY }
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -364,7 +367,7 @@ fun TransactionDetailSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onSetCategoryExempt(!transaction.categoryExempt) }
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSetCategoryExempt(!transaction.categoryExempt) }
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -456,7 +459,7 @@ fun TransactionDetailSheet(
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             modifier = Modifier
-                                .clickable { isEditingNote = false; noteText = note ?: "" }
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { isEditingNote = false; noteText = note ?: "" }
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                         )
                         Spacer(Modifier.width(8.dp))
@@ -466,7 +469,7 @@ fun TransactionDetailSheet(
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF7C3AED),
                             modifier = Modifier
-                                .clickable {
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                     val trimmed = noteText.trim()
                                     onSetNote(trimmed.ifBlank { null })
                                     isEditingNote = false
@@ -479,7 +482,7 @@ fun TransactionDetailSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { isEditingNote = true }
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { isEditingNote = true }
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -541,7 +544,7 @@ fun TransactionDetailSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { activeView = DetailView.REMINDER }
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { activeView = DetailView.REMINDER }
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -595,7 +598,7 @@ fun TransactionDetailSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onToggleExcluded(!transaction.isExcluded) }
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onToggleExcluded(!transaction.isExcluded) }
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -722,7 +725,7 @@ private fun ReminderPanel(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clickable { onBack() },
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onBack() },
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Icon(
@@ -759,7 +762,7 @@ private fun ReminderPanel(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { selectedDaysBefore = days }
+                                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { selectedDaysBefore = days }
                                     .padding(vertical = 3.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -777,7 +780,7 @@ private fun ReminderPanel(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { useCustomDate = !useCustomDate }
+                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { useCustomDate = !useCustomDate }
                             .padding(vertical = 3.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -795,7 +798,7 @@ private fun ReminderPanel(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showDatePicker = true }
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showDatePicker = true }
                                 .background(Color(0xFF2196F3).copy(alpha = 0.08f), RoundedCornerShape(10.dp))
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                         ) {
@@ -822,7 +825,7 @@ private fun ReminderPanel(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showTimePicker = true }
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showTimePicker = true }
                         .padding(horizontal = 16.dp, vertical = 18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -871,7 +874,7 @@ private fun ReminderPanel(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onRemove() }
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onRemove() }
                         .background(Color(0xFFE91E63).copy(alpha = 0.08f), RoundedCornerShape(10.dp))
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center,
@@ -991,7 +994,7 @@ private fun ReminderPanel(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
                                         .background(if (isAM) Color(0xFF7C3AED) else Color.Transparent)
-                                        .clickable { isAM = true }
+                                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { isAM = true }
                                         .padding(horizontal = 16.dp, vertical = 10.dp),
                                 ) {
                                     Text(
@@ -1005,7 +1008,7 @@ private fun ReminderPanel(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
                                         .background(if (!isAM) Color(0xFF7C3AED) else Color.Transparent)
-                                        .clickable { isAM = false }
+                                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { isAM = false }
                                         .padding(horizontal = 16.dp, vertical = 10.dp),
                                 ) {
                                     Text(
@@ -1031,7 +1034,7 @@ private fun ReminderPanel(
                                 fontWeight = FontWeight.Medium,
                                 color = Color.White.copy(alpha = 0.5f),
                                 modifier = Modifier
-                                    .clickable { showTimePicker = false }
+                                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showTimePicker = false }
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
                             )
                             Spacer(Modifier.width(8.dp))
@@ -1041,7 +1044,7 @@ private fun ReminderPanel(
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF7C3AED),
                                 modifier = Modifier
-                                    .clickable {
+                                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                         val h = if (isAM) {
                                             if (tempHour == 12) 0 else tempHour
                                         } else {
@@ -1237,7 +1240,7 @@ private fun CustomDatePickerDialog(
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
-                                .clickable {
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                     if (displayMonth == 0) { displayMonth = 11; displayYear-- } else displayMonth--
                                     pickedDay = pickedDay.coerceAtMost(
                                         java.time.YearMonth.of(displayYear, displayMonth + 1).lengthOfMonth()
@@ -1257,7 +1260,7 @@ private fun CustomDatePickerDialog(
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
-                                .clickable {
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                     if (displayMonth == 11) { displayMonth = 0; displayYear++ } else displayMonth++
                                     pickedDay = pickedDay.coerceAtMost(
                                         java.time.YearMonth.of(displayYear, displayMonth + 1).lengthOfMonth()
@@ -1305,7 +1308,7 @@ private fun CustomDatePickerDialog(
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(vertical = 2.dp)
-                                        .clickable {
+                                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                             if (isCurrentMonth) pickedDay = dayIndex
                                         },
                                     contentAlignment = Alignment.Center,
@@ -1352,7 +1355,7 @@ private fun CustomDatePickerDialog(
                             fontWeight = FontWeight.Medium,
                             color = Color.White.copy(alpha = 0.5f),
                             modifier = Modifier
-                                .clickable { onDismiss() }
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onDismiss() }
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                         )
                         Spacer(Modifier.width(8.dp))
@@ -1362,7 +1365,7 @@ private fun CustomDatePickerDialog(
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF7C3AED),
                             modifier = Modifier
-                                .clickable {
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                     onConfirm(java.time.LocalDate.of(displayYear, displayMonth + 1, pickedDay).toEpochDay())
                                 }
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1392,7 +1395,7 @@ private fun CategoryPanel(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clickable { onBack() },
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onBack() },
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Icon(
@@ -1426,7 +1429,7 @@ private fun CategoryPanel(
                 GlassCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { selected = cat },
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { selected = cat },
                     shape = RoundedCornerShape(16.dp),
                     tint = catColor,
                     tintAlpha = if (isSelected) 0.22f else 0.05f,
@@ -1480,7 +1483,7 @@ private fun CategoryPanel(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { applyToAll = true }
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { applyToAll = true }
                 .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1495,7 +1498,7 @@ private fun CategoryPanel(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { applyToAll = false }
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { applyToAll = false }
                 .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
