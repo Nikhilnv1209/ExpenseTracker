@@ -24,6 +24,7 @@ data class TransactionEntity(
     val isExcluded: Boolean = false,
     val alias: String? = null,
     val categoryExempt: Boolean = false,
+    val noteIsManual: Boolean = false,
 )
 
 fun TransactionEntity.toDomain(): Transaction = Transaction(
@@ -41,6 +42,7 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     isExcluded = isExcluded,
     alias = alias,
     categoryExempt = categoryExempt,
+    noteIsManual = noteIsManual,
 )
 
 fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
@@ -58,4 +60,5 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     isExcluded = isExcluded,
     alias = alias,
     categoryExempt = categoryExempt,
+    noteIsManual = noteIsManual,
 )

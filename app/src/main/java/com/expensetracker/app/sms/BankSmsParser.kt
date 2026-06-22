@@ -147,7 +147,8 @@ object BankSmsParser {
     )
 
     private val categoryKeywords = mapOf(
-        Category.FOOD to listOf("swiggy", "zomato", "food", "restaurant", "dominos", "pizza", "burger", "grocery", "groceries", "blinkit", "zepto", "bigbasket"),
+        Category.FOOD to listOf("swiggy", "zomato", "food", "restaurant", "dominos", "pizza", "burger"),
+        Category.GROCERY to listOf("grocery", "groceries", "blinkit", "zepto", "bigbasket", "dmart", "reliance fresh", "more supermarket"),
         Category.TRANSPORT to listOf("uber", "ola", "rapido", "namma yatri", "petrol", "fuel", "diesel", "metro", "toll", "parking", "irctc", "train", "bus", "flight", "goindigo", "airasia"),
         Category.SHOPPING to listOf("amazon", "flipkart", "myntra", "ajio", "meesho", "nykaa", "shopify", "mart", "store", "shopping"),
         Category.ENTERTAINMENT to listOf("netflix", "spotify", "hotstar", "prime", "disney", "sony", "youtube", "movie", "theatre", "cinema"),

@@ -3,8 +3,11 @@ package com.expensetracker.app.ui.feature.transactionlist
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensetracker.app.data.local.AliasDao
+import com.expensetracker.app.data.local.CategoryRuleDao
+import com.expensetracker.app.data.local.CategoryRuleEntity
 import com.expensetracker.app.data.local.TransactionDao
 import com.expensetracker.app.data.local.toDomain
+import com.expensetracker.app.domain.model.Category
 import com.expensetracker.app.domain.model.Transaction
 import com.expensetracker.app.ui.feature.home.FilterPeriod
 import com.expensetracker.app.ui.feature.home.TransactionFilter
@@ -34,6 +37,7 @@ private val TransactionListDefaultFilter = TransactionFilter(period = FilterPeri
 class TransactionListViewModel @Inject constructor(
     private val transactionDao: TransactionDao,
     private val aliasDao: AliasDao,
+    private val categoryRuleDao: CategoryRuleDao,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TransactionListUiState())
@@ -128,5 +132,35 @@ class TransactionListViewModel @Inject constructor(
             transactionDao.setNote(transactionId, note?.trim()?.ifBlank { null })
             loadFiltered()
         }
+    }
+
+    fun setCategory(transactionId: Long, title: String, category: Category, applyToAll: Boolean) {
+        viewModelScope.launch {
+            if (applyToAll) {
+                categoryRuleDao.upsert(CategoryRuleEntity(title, category.displayName))
+                transactionDao.applyCategoryToAll(title, category.displayName)
+                transactionDao.setCategoryExempt(transactionId, false)
+            } else {
+                transactionDao.updateCategory(transactionId, category.displayName)
+                transactionDao.setCategoryExempt(transactionId, true)
+            }
+            loadFiltered()
+        }
+    }
+
+    fun setCategoryExempt(transactionId: Long, title: String, exempt: Boolean) {
+        viewModelScope.launch {
+            transactionDao.setCategoryExempt(transactionId, exempt)
+            if (!exempt) {
+                categoryRuleDao.findByTitle(title)?.let { rule ->
+                    transactionDao.updateCategory(transactionId, rule.category)
+                }
+            }
+            loadFiltered()
+        }
+    }
+
+    suspend fun getCategoryRule(title: String): Category? {
+        return categoryRuleDao.findByTitle(title)?.category?.let { Category.fromDisplayName(it) }
     }
 }

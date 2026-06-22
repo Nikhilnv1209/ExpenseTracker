@@ -14,6 +14,7 @@ enum class Category(val displayName: String) {
     ENTERTAINMENT("Entertainment"),
     HEALTH("Health"),
     BILLS("Bills"),
+    GROCERY("Grocery"),
     SALARY("Salary"),
     CASH("Cash"),
     TRANSFER("Transfer"),
@@ -41,4 +42,5 @@ data class Transaction(
     val isExcluded: Boolean = false,
     val alias: String? = null,
     val categoryExempt: Boolean = false,
+    val noteIsManual: Boolean = false,
 )

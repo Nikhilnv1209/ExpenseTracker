@@ -51,6 +51,7 @@ import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Nightlight
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Receipt
+import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material.icons.rounded.SwapHoriz
@@ -933,6 +934,7 @@ internal fun categoryColor(category: Category): Color = when (category) {
     Category.SHOPPING -> Color(0xFF9C27B0)
     Category.HEALTH -> Color(0xFF00BCD4)
     Category.BILLS -> Color(0xFFFF5722)
+    Category.GROCERY -> Color(0xFF8BC34A)
     Category.CASH -> Color(0xFF795548)
     Category.TRANSFER -> Color(0xFF607D8B)
     Category.OTHER -> Color(0xFF9E9E9E)
@@ -946,6 +948,7 @@ internal fun categoryIcon(category: Category): ImageVector = when (category) {
     Category.SHOPPING -> Icons.Rounded.ShoppingBag
     Category.HEALTH -> Icons.Rounded.MedicalServices
     Category.BILLS -> Icons.Rounded.Receipt
+    Category.GROCERY -> Icons.Rounded.Storefront
     Category.CASH -> Icons.Rounded.Payments
     Category.TRANSFER -> Icons.Rounded.SwapHoriz
     Category.OTHER -> Icons.Rounded.MoreHoriz
@@ -1032,11 +1035,21 @@ private fun TransactionItem(transaction: Transaction, currency: Currency, onClic
                     color = if (transaction.isIncome) Color(0xFF4CAF50)
                     else Color(0xFFE91E63),
                 )
-                Text(
-                    text = if (transaction.isIncome) "Income" else "Expense",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-                )
+                if (transaction.noteIsManual && transaction.note != null) {
+                    Text(
+                        text = transaction.note!!,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                } else {
+                    Text(
+                        text = if (transaction.isIncome) "Income" else "Expense",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                    )
+                }
             }
 
             Spacer(Modifier.width(16.dp))

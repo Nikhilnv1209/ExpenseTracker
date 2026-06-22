@@ -96,7 +96,7 @@ interface TransactionDao {
     @Query("UPDATE transactions SET categoryExempt = :exempt WHERE id = :id")
     suspend fun setCategoryExempt(id: Long, exempt: Boolean)
 
-    @Query("UPDATE transactions SET note = :note WHERE id = :id")
+    @Query("UPDATE transactions SET note = :note, noteIsManual = 1 WHERE id = :id")
     suspend fun setNote(id: Long, note: String?)
 
     @Query("SELECT DISTINCT title FROM transactions ORDER BY title ASC")

@@ -247,9 +247,16 @@ fun TransactionListScreen(
         }
 
         selectedTransaction?.let { txn ->
+            val categoryRule by androidx.compose.runtime.produceState(
+                initialValue = null as Category?,
+                key1 = txn.title,
+            ) {
+                value = viewModel.getCategoryRule(txn.title)
+            }
             TransactionDetailSheet(
                 transaction = txn,
                 currency = currency,
+                categoryRule = categoryRule,
                 onToggleExcluded = { excluded ->
                     viewModel.toggleExcluded(txn.id, excluded)
                     selectedTransaction = null
@@ -260,6 +267,14 @@ fun TransactionListScreen(
                 },
                 onSetNote = { note ->
                     viewModel.setNote(txn.id, note)
+                    selectedTransaction = null
+                },
+                onSetCategory = { category, applyToAll ->
+                    viewModel.setCategory(txn.id, txn.title, category, applyToAll)
+                    selectedTransaction = null
+                },
+                onSetCategoryExempt = { exempt ->
+                    viewModel.setCategoryExempt(txn.id, txn.title, exempt)
                     selectedTransaction = null
                 },
             )
@@ -339,11 +354,21 @@ private fun TransactionListItem(transaction: Transaction, currency: com.expenset
                     fontWeight = FontWeight.Bold,
                     color = if (transaction.isIncome) Color(0xFF4CAF50) else Color(0xFFE91E63),
                 )
-                Text(
-                    text = if (transaction.isIncome) "Income" else "Expense",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-                )
+                if (transaction.noteIsManual && transaction.note != null) {
+                    Text(
+                        text = transaction.note!!,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                } else {
+                    Text(
+                        text = if (transaction.isIncome) "Income" else "Expense",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                    )
+                }
             }
 
             Spacer(Modifier.width(16.dp))
