@@ -642,7 +642,7 @@ private fun GraphPager(uiState: HomeUiState) {
         Column(modifier = Modifier.fillMaxWidth()) {
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.fillMaxWidth().height(290.dp),
+                modifier = Modifier.fillMaxWidth().height(310.dp),
             ) { page ->
                 Box(modifier = Modifier.fillMaxSize()) {
                     when (page) {

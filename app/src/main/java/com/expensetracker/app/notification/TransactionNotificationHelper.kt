@@ -53,7 +53,7 @@ object TransactionNotificationHelper {
         val content = "$label ₹${String.format("%.2f", amount)} · $title"
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_NEW)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle("New transaction")
             .setContentText(content)
             .setStyle(NotificationCompat.BigTextStyle().bigText(content))
@@ -85,7 +85,7 @@ object TransactionNotificationHelper {
         val content = "$netText — you spent $expenseCompare"
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_SUMMARY)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(content)
             .setStyle(NotificationCompat.BigTextStyle().bigText(content))

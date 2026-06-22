@@ -217,6 +217,12 @@ object BankSmsParser {
         if (Regex("\\bCAN\\s+BE\\s+CREDITED\\b").containsMatchIn(upperBody)) return true
         if (upperBody.contains("DAILY LIMIT") && upperBody.contains("INCREASED")) return true
         if (upperBody.contains("REQUESTED") && upperBody.contains("WILL BE DEBITED")) return true
+        if (upperBody.contains("APPROVAL UP TO")) return true
+        if (upperBody.contains("COMPLETE KYC")) return true
+        if (upperBody.contains("CASHBACK ON YOUR")) return true
+        if (upperBody.contains("HTTP://") || upperBody.contains("HTTPS://")) {
+            if (upperBody.contains("CASHBACK") || upperBody.contains("OFFER") || upperBody.contains("APPROVAL")) return true
+        }
         return false
     }
 
