@@ -60,6 +60,17 @@ object TransactionNotificationHelper {
         val sign = if (isIncome) "+" else "-"
         val content = "$label ₹${String.format("%.2f", amount)} · $title"
 
+        val openIntent = android.content.Intent(context, com.expensetracker.app.MainActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_TRANSACTION_ID, transactionId)
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            context,
+            transactionId.toInt(),
+            openIntent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_NEW)
             .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle("New transaction")
@@ -67,6 +78,7 @@ object TransactionNotificationHelper {
             .setStyle(NotificationCompat.BigTextStyle().bigText(content))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(transactionId.toInt(), builder.build())
