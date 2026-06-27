@@ -111,6 +111,7 @@ interface TransactionDao {
         AND (:type IS NULL OR type = :type)
         AND (:search IS NULL OR title LIKE '%' || :search || '%' OR alias LIKE '%' || :search || '%' OR bankName LIKE '%' || :search || '%')
         AND (:bank IS NULL OR bankName = :bank)
+        AND (:category IS NULL OR category = :category)
         ORDER BY date DESC, id DESC
     """)
     suspend fun getFiltered(
@@ -119,6 +120,7 @@ interface TransactionDao {
         type: String?,
         search: String?,
         bank: String?,
+        category: String?,
     ): List<TransactionEntity>
 
     @Query("UPDATE transactions SET isExcluded = :excluded WHERE title = :title")

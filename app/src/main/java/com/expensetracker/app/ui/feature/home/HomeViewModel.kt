@@ -316,8 +316,9 @@ class HomeViewModel @Inject constructor(
             val search = filter.search.ifBlank { null }
             val bank = filter.bank
             val type = filter.type
+            val category = filter.category
 
-            val filtered = transactionDao.getFiltered(startDate, endDate, type, search, bank).map { it.toDomain() }
+            val filtered = transactionDao.getFiltered(startDate, endDate, type, search, bank, category).map { it.toDomain() }
 
             val incomeTotal = transactionDao.getIncomeTotal(startDate, endDate)
             val expenseTotal = transactionDao.getExpenseTotal(startDate, endDate)
@@ -351,6 +352,7 @@ data class TransactionFilter(
     val search: String = "",
     val type: String? = null,
     val bank: String? = null,
+    val category: String? = null,
     val period: FilterPeriod = FilterPeriod.THIS_MONTH,
     val customStart: Long? = null,
     val customEnd: Long? = null,

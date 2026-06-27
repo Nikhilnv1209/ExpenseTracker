@@ -53,6 +53,7 @@ fun FilterSheet(
     var search by remember { mutableStateOf(filter.search) }
     var selectedType by remember { mutableStateOf(filter.type) }
     var selectedBank by remember { mutableStateOf(filter.bank) }
+    var selectedCategory by remember { mutableStateOf(filter.category) }
     var selectedPeriod by remember { mutableStateOf(filter.period) }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
@@ -81,6 +82,7 @@ fun FilterSheet(
                             search = ""
                             selectedType = null
                             selectedBank = null
+                            selectedCategory = null
                             selectedPeriod = defaultPeriod
                             onReset()
                         }
@@ -89,7 +91,7 @@ fun FilterSheet(
                 Spacer(Modifier.width(8.dp))
                 IconButton(
                     onClick = {
-                        onApply(TransactionFilter(search, selectedType, selectedBank, selectedPeriod))
+                        onApply(TransactionFilter(search, selectedType, selectedBank, selectedCategory, selectedPeriod))
                     },
                     modifier = Modifier
                         .size(36.dp)
@@ -138,6 +140,22 @@ fun FilterSheet(
                 val selected = selectedType == type
                 FilterChip(label = label, selected = selected) {
                     selectedType = type
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        Text("Category", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+        Spacer(Modifier.height(8.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(label = "All", selected = selectedCategory == null) {
+                selectedCategory = null
+            }
+            com.expensetracker.app.domain.model.Category.entries.forEach { cat ->
+                val selected = selectedCategory == cat.displayName
+                FilterChip(label = cat.displayName, selected = selected) {
+                    selectedCategory = if (selected) null else cat.displayName
                 }
             }
         }

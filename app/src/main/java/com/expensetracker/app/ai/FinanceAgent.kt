@@ -109,6 +109,7 @@ class FinanceAgent(context: Context) {
             type = null,
             search = null,
             bank = null,
+            category = null,
         ).map { it.toDomain() }.take(20)
 
         val context = """

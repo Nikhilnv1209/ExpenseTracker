@@ -101,8 +101,9 @@ class TransactionListViewModel @Inject constructor(
         val search = filter.search.ifBlank { null }
         val bank = filter.bank
         val type = filter.type
+        val category = filter.category
 
-        val transactions = transactionDao.getFiltered(startDate, endDate, type, search, bank).map { it.toDomain() }
+        val transactions = transactionDao.getFiltered(startDate, endDate, type, search, bank, category).map { it.toDomain() }
         val incomeTotal = transactionDao.getIncomeTotal(startDate, endDate)
         val expenseTotal = transactionDao.getExpenseTotal(startDate, endDate)
         return Triple(transactions, incomeTotal, expenseTotal)
