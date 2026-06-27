@@ -29,6 +29,12 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE smsDate = :smsDate LIMIT 1")
     suspend fun findBySmsDate(smsDate: Long): TransactionEntity?
 
+    @Query("SELECT * FROM transactions WHERE rawSms = :rawSms LIMIT 1")
+    suspend fun findByRawSms(rawSms: String): TransactionEntity?
+
+    @Query("DELETE FROM transactions WHERE id NOT IN (SELECT MIN(id) FROM transactions GROUP BY rawSms) AND rawSms IS NOT NULL")
+    suspend fun deleteDuplicateByRawSms(): Int
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(transaction: TransactionEntity): Long
 

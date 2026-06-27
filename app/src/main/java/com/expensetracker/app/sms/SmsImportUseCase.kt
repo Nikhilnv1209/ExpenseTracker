@@ -41,6 +41,13 @@ class SmsImportUseCase @Inject constructor(
                 return@forEach
             }
             val existing = parsedTx.smsDate?.let { transactionDao.findBySmsDate(it) }
+            if (existing == null) {
+                val existingBySms = transactionDao.findByRawSms(parsedTx.rawSms)
+                if (existingBySms != null) {
+                    skipped++
+                    return@forEach
+                }
+            }
             val resolvedAlias = aliases[parsedTx.description]
             if (existing != null) {
                 val keepCategory = existing.categoryExempt

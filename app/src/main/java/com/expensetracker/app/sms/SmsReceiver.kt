@@ -62,6 +62,12 @@ class SmsReceiver : BroadcastReceiver() {
                         continue
                     }
 
+                    val existingBySms = transactionDao.findByRawSms(parsed.rawSms)
+                    if (existingBySms != null) {
+                        Log.d(TAG, "Transaction already exists by rawSms")
+                        continue
+                    }
+
                     val resolvedAlias = aliasDao.findByOriginalTitle(parsed.description)?.alias
                     val ruleCategory = categoryRuleDao.findByTitle(parsed.description)?.category
                         ?.let { Category.fromDisplayName(it) } ?: parsed.category
