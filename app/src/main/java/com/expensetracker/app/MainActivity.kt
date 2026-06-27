@@ -81,6 +81,7 @@ class MainActivity : ComponentActivity() {
                                 onManageAliases = { navController.navigate("aliases") },
                                 onIgnoredSenders = { navController.navigate("ignored") },
                                 onCategoryRules = { navController.navigate("category_rules") },
+                                onReminders = { navController.navigate("reminders") },
                                 onOpenAgent = { navController.navigate("agent") },
                             )
                         }
@@ -98,6 +99,9 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("category_rules") {
                             CategoryRulesScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable("reminders") {
+                            com.expensetracker.app.ui.feature.reminders.RemindersScreen(onBack = { navController.popBackStack() })
                         }
                         composable("agent") {
                             AgentChatScreen(onBack = { navController.popBackStack() })

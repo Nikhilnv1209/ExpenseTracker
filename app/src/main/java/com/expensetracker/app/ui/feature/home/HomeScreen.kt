@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Brightness3
 import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.FilterList
@@ -141,6 +142,7 @@ fun HomeScreen(
     onIgnoredSenders: () -> Unit = {},
     onCategoryRules: () -> Unit = {},
     onOpenAgent: () -> Unit = {},
+    onReminders: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -330,6 +332,10 @@ fun HomeScreen(
                 onCategoryRules = {
                     showSettings = false
                     onCategoryRules()
+                },
+                onReminders = {
+                    showSettings = false
+                    onReminders()
                 },
                 onOpenAgent = {
                     showSettings = false
@@ -1158,6 +1164,7 @@ private fun SettingsSheet(
     onManageAliases: () -> Unit,
     onIgnoredSenders: () -> Unit,
     onCategoryRules: () -> Unit,
+    onReminders: () -> Unit,
     onOpenAgent: () -> Unit,
     onImportSms: () -> Unit,
     onExportSms: () -> Unit,
@@ -1180,6 +1187,7 @@ private fun SettingsSheet(
             onManageAliases = onManageAliases,
             onIgnoredSenders = onIgnoredSenders,
             onCategoryRules = onCategoryRules,
+            onReminders = onReminders,
             onOpenAgent = onOpenAgent,
             onImportSms = onImportSms,
             onExportSms = onExportSms,
@@ -1195,6 +1203,7 @@ private fun SettingsContent(
     onManageAliases: () -> Unit,
     onIgnoredSenders: () -> Unit,
     onCategoryRules: () -> Unit,
+    onReminders: () -> Unit,
     onOpenAgent: () -> Unit,
     onImportSms: () -> Unit,
     onExportSms: () -> Unit,
@@ -1234,6 +1243,13 @@ private fun SettingsContent(
             title = "Category Rules",
             subtitle = "Auto-categorize transactions by sender",
             onClick = onCategoryRules,
+        )
+
+        SettingsRow(
+            icon = Icons.Rounded.Notifications,
+            title = "Payment Reminders",
+            subtitle = "Manage upcoming payment alerts",
+            onClick = onReminders,
         )
 
         SettingsRow(
