@@ -95,6 +95,9 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
+    implementation("com.mikepenz:multiplatform-markdown-renderer-m3-android:0.28.0")
+    implementation("com.mikepenz:multiplatform-markdown-renderer-coil3-android:0.28.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

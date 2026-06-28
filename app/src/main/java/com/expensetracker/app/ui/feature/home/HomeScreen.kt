@@ -235,6 +235,7 @@ fun HomeScreen(
                 item { GreetingHeader(
                     onSettingsClick = { showSettings = true },
                     onFilterClick = { showFilter = true; viewModel.loadBankSuggestions() },
+                    onAgentClick = onOpenAgent,
                     hasActiveFilter = uiState.filter != TransactionFilter(),
                 ) }
                 item { BalanceCard(selectedCurrency, uiState) { viewModel.cycleBalanceMode() } }
@@ -449,6 +450,7 @@ fun HomeScreen(
 private fun GreetingHeader(
     onSettingsClick: () -> Unit,
     onFilterClick: () -> Unit,
+    onAgentClick: () -> Unit,
     hasActiveFilter: Boolean = false,
 ) {
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
@@ -488,6 +490,28 @@ private fun GreetingHeader(
             )
         }
         Row {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = Color(0xFF7C3AED).copy(alpha = 0.1f),
+                        shape = CircleShape,
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onAgentClick,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = "AI Agent",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color(0xFF7C3AED).copy(alpha = 0.7f),
+                )
+            }
+            Spacer(Modifier.width(8.dp))
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -1250,13 +1274,6 @@ private fun SettingsContent(
             title = "Payment Reminders",
             subtitle = "Manage upcoming payment alerts",
             onClick = onReminders,
-        )
-
-        SettingsRow(
-            icon = Icons.Rounded.AutoAwesome,
-            title = "Finance Agent",
-            subtitle = "Ask AI about your spending and organize transactions",
-            onClick = onOpenAgent,
         )
 
         SettingsRow(

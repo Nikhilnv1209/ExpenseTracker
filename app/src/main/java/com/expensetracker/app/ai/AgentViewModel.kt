@@ -1,6 +1,7 @@
 package com.expensetracker.app.ai
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,12 +26,60 @@ class AgentViewModel @Inject constructor(
 
     fun sendMessage(text: String) {
         if (text.isBlank()) return
+
+        val history = _messages.value
+            .filter { it.text.isNotBlank() }
+            .map { msg ->
+                (if (msg.role == AgentMessageRole.USER) "user" else "assistant") to msg.text
+            }
+
         _messages.value += AgentMessage(role = AgentMessageRole.USER, text = text)
         _isLoading.value = true
 
         viewModelScope.launch {
-            val response = financeAgent.chat(text)
-            _messages.value += AgentMessage(role = AgentMessageRole.MODEL, text = response.reply)
+            var msgAdded = false
+            val reasoningBuilder = StringBuilder()
+
+            val response = financeAgent.chat(
+                userMessage = text,
+                history = history,
+                onReasoning = { delta ->
+                    reasoningBuilder.append(delta)
+                    if (!msgAdded) {
+                        msgAdded = true
+                        _isLoading.value = false
+                        _messages.value += AgentMessage(
+                            role = AgentMessageRole.MODEL,
+                            text = "",
+                            reasoning = reasoningBuilder.toString(),
+                        )
+                    } else {
+                        _messages.value = _messages.value.toMutableList().also {
+                            it[it.lastIndex] = it[it.lastIndex].copy(reasoning = reasoningBuilder.toString())
+                        }
+                    }
+                },
+                onContent = { partial ->
+                    if (!msgAdded) {
+                        msgAdded = true
+                        _isLoading.value = false
+                        _messages.value += AgentMessage(role = AgentMessageRole.MODEL, text = partial)
+                    } else {
+                        _messages.value = _messages.value.toMutableList().also {
+                            it[it.lastIndex] = it[it.lastIndex].copy(text = partial)
+                        }
+                    }
+                },
+            )
+
+            if (!msgAdded) {
+                _isLoading.value = false
+                _messages.value += AgentMessage(role = AgentMessageRole.MODEL, text = response)
+            } else {
+                _messages.value = _messages.value.toMutableList().also {
+                    it[it.lastIndex] = it[it.lastIndex].copy(text = response)
+                }
+            }
             _isLoading.value = false
         }
     }
@@ -43,6 +92,7 @@ class AgentViewModel @Inject constructor(
 data class AgentMessage(
     val role: AgentMessageRole,
     val text: String,
+    val reasoning: String? = null,
 )
 
 enum class AgentMessageRole { USER, MODEL }
