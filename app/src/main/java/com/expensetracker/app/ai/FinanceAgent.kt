@@ -5,6 +5,7 @@ import android.util.Log
 import com.expensetracker.app.ExpenseTrackerApplication
 import com.expensetracker.app.data.local.toDomain
 import com.expensetracker.app.domain.model.Category
+import com.expensetracker.app.notification.ReminderScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -26,6 +27,7 @@ class FinanceAgent(context: Context) {
     private val transactionDao by lazy { (appContext as ExpenseTrackerApplication).transactionDao }
     private val aliasDao by lazy { (appContext as ExpenseTrackerApplication).aliasDao }
     private val ignoredSenderDao by lazy { (appContext as ExpenseTrackerApplication).ignoredSenderDao }
+    private val reminderDao by lazy { (appContext as ExpenseTrackerApplication).reminderDao }
 
     suspend fun chat(
         userMessage: String,
@@ -243,6 +245,16 @@ class FinanceAgent(context: Context) {
                 ),
             ),
             ToolFunctionDef(
+                name = "delete_transaction",
+                description = "Permanently delete a transaction, including wrongly parsed ones. Works even for excluded transactions.",
+                parameters = ToolParams(
+                    properties = mapOf(
+                        "transactionId" to ToolProperty(type = "integer", description = "The ID of the transaction to delete."),
+                    ),
+                    required = listOf("transactionId"),
+                ),
+            ),
+            ToolFunctionDef(
                 name = "add_ignored_sender",
                 description = "Ignore future SMS imports from a specific sender and exclude their existing transactions.",
                 parameters = ToolParams(
@@ -270,6 +282,7 @@ class FinanceAgent(context: Context) {
             "set_alias" -> executeSetAlias(args)
             "set_note" -> executeSetNote(args)
             "exclude_transaction" -> executeExcludeTransaction(args)
+            "delete_transaction" -> executeDeleteTransaction(args)
             "add_ignored_sender" -> executeAddIgnoredSender(args)
             else -> """{"error": "Unknown tool: $name"}"""
         }
@@ -360,6 +373,21 @@ class FinanceAgent(context: Context) {
         return if (id != null) {
             transactionDao.setExcluded(id, true)
             """{"success":true,"message":"Transaction $id excluded"}"""
+        } else {
+            """{"error":"Invalid transactionId"}"""
+        }
+    }
+
+    private suspend fun executeDeleteTransaction(args: JsonObject): String {
+        val id = args["transactionId"]?.toString()?.toLongOrNull()
+        return if (id != null) {
+            val existing = reminderDao.findByTransactionId(id)
+            if (existing != null) {
+                ReminderScheduler.cancel(appContext, existing.id)
+                reminderDao.deleteByTransactionId(id)
+            }
+            transactionDao.deleteById(id)
+            """{"success":true,"message":"Transaction $id deleted"}"""
         } else {
             """{"error":"Invalid transactionId"}"""
         }

@@ -20,17 +20,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Undo
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -57,6 +63,7 @@ fun ExcludedTransactionsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val currency = currencies[1]
+    var pendingDelete by remember { mutableStateOf<Transaction?>(null) }
 
     Column(
         modifier = Modifier
@@ -100,12 +107,42 @@ fun ExcludedTransactionsScreen(
                         transaction = transaction,
                         currency = currency,
                         onInclude = { viewModel.includeTransaction(transaction.id) },
+                        onDelete = { pendingDelete = transaction },
                     )
                 }
 
                 item { Spacer(modifier = Modifier.height(16.dp)) }
             }
         }
+    }
+
+    pendingDelete?.let { txn ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteTransaction(txn.id)
+                        pendingDelete = null
+                    },
+                ) {
+                    Text("Delete", color = Color(0xFFE91E63))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text("Cancel")
+                }
+            },
+            title = { Text("Delete transaction?") },
+            text = {
+                Text(
+                    "This will permanently delete \"${txn.title}\" " +
+                        "(${if (txn.isIncome) "+" else "-"}${formatAmount(txn.amount, currency)}) " +
+                        "from your records.",
+                )
+            },
+        )
     }
 }
 
@@ -114,6 +151,7 @@ private fun ExcludedItem(
     transaction: Transaction,
     currency: com.expensetracker.app.ui.feature.home.Currency,
     onInclude: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val catColor = categoryColor(transaction.category)
 
@@ -188,6 +226,23 @@ private fun ExcludedItem(
                     imageVector = Icons.Rounded.Undo,
                     contentDescription = "Include",
                     tint = Color(0xFF4CAF50),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+
+            Spacer(Modifier.width(6.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(Color(0xFFE91E63).copy(alpha = 0.15f), CircleShape)
+                    .clickable(onClick = onDelete),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Delete,
+                    contentDescription = "Delete",
+                    tint = Color(0xFFE91E63),
                     modifier = Modifier.size(18.dp),
                 )
             }

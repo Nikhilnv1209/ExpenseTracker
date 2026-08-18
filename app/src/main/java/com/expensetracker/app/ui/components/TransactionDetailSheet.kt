@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
@@ -95,12 +96,14 @@ fun TransactionDetailSheet(
     onSetCategoryExempt: (Boolean) -> Unit = {},
     onSetReminder: (Int, Long?, Int, Int) -> Unit = { _, _, _, _ -> },
     onRemoveReminder: () -> Unit = {},
+    onDelete: () -> Unit = {},
 ) {
     val catColor = categoryColor(transaction.category)
     val displayTitle = transaction.alias ?: transaction.title
     var isEditingAlias by remember { mutableStateOf(false) }
     var aliasText by remember { mutableStateOf(transaction.alias ?: "") }
     var activeView by remember { mutableStateOf(DetailView.DETAIL) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -638,6 +641,60 @@ fun TransactionDetailSheet(
                     )
                 }
             }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { showDeleteConfirm = true }
+                .background(Color(0xFFE91E63).copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                .padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.Delete,
+                    contentDescription = null,
+                    tint = Color(0xFFE91E63),
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Delete transaction",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFFE91E63),
+                )
+            }
+        }
+
+        if (showDeleteConfirm) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirm = false },
+                confirmButton = {
+                    TextButton(onClick = { onDelete() }) {
+                        Text("Delete", color = Color(0xFFE91E63))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirm = false }) {
+                        Text("Cancel")
+                    }
+                },
+                title = { Text("Delete transaction?") },
+                text = {
+                    Text(
+                        "This will permanently delete \"$displayTitle\" " +
+                            "(${if (transaction.isIncome) "+" else "-"}${com.expensetracker.app.ui.feature.home.formatAmount(transaction.amount, currency)}) " +
+                            "from your records.",
+                    )
+                },
+            )
         }
 
         if (transaction.rawSms != null) {

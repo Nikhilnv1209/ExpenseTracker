@@ -268,6 +268,17 @@ class HomeViewModel @Inject constructor(
         return reminderDao.findByTransactionId(transactionId)
     }
 
+    fun deleteTransaction(transactionId: Long) {
+        viewModelScope.launch {
+            val existing = reminderDao.findByTransactionId(transactionId)
+            if (existing != null) {
+                ReminderScheduler.cancel(appContext, existing.id)
+            }
+            reminderDao.deleteByTransactionId(transactionId)
+            transactionDao.deleteById(transactionId)
+        }
+    }
+
     fun addTransaction(
         title: String,
         amount: Double,

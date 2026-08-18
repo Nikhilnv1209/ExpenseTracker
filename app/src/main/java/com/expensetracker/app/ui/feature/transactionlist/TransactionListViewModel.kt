@@ -35,9 +35,11 @@ private val TransactionListDefaultFilter = TransactionFilter(period = FilterPeri
 
 @HiltViewModel
 class TransactionListViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context,
     private val transactionDao: TransactionDao,
     private val aliasDao: AliasDao,
     private val categoryRuleDao: CategoryRuleDao,
+    private val reminderDao: com.expensetracker.app.data.local.ReminderDao,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TransactionListUiState())
@@ -112,6 +114,18 @@ class TransactionListViewModel @Inject constructor(
     fun toggleExcluded(transactionId: Long, excluded: Boolean) {
         viewModelScope.launch {
             transactionDao.setExcluded(transactionId, excluded)
+            loadFiltered()
+        }
+    }
+
+    fun deleteTransaction(transactionId: Long) {
+        viewModelScope.launch {
+            val existing = reminderDao.findByTransactionId(transactionId)
+            if (existing != null) {
+                com.expensetracker.app.notification.ReminderScheduler.cancel(appContext, existing.id)
+            }
+            reminderDao.deleteByTransactionId(transactionId)
+            transactionDao.deleteById(transactionId)
             loadFiltered()
         }
     }

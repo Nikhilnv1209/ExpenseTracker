@@ -277,6 +277,10 @@ fun TransactionListScreen(
                     viewModel.setCategoryExempt(txn.id, txn.title, exempt)
                     selectedTransaction = null
                 },
+                onDelete = {
+                    viewModel.deleteTransaction(txn.id)
+                    selectedTransaction = null
+                },
             )
         }
     }

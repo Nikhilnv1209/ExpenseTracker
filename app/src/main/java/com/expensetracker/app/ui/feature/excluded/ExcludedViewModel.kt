@@ -19,7 +19,9 @@ data class ExcludedUiState(
 
 @HiltViewModel
 class ExcludedViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context,
     private val transactionDao: TransactionDao,
+    private val reminderDao: com.expensetracker.app.data.local.ReminderDao,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ExcludedUiState())
@@ -39,6 +41,18 @@ class ExcludedViewModel @Inject constructor(
     fun includeTransaction(id: Long) {
         viewModelScope.launch {
             transactionDao.setExcluded(id, false)
+            loadExcluded()
+        }
+    }
+
+    fun deleteTransaction(id: Long) {
+        viewModelScope.launch {
+            val existing = reminderDao.findByTransactionId(id)
+            if (existing != null) {
+                com.expensetracker.app.notification.ReminderScheduler.cancel(appContext, existing.id)
+            }
+            reminderDao.deleteByTransactionId(id)
+            transactionDao.deleteById(id)
             loadExcluded()
         }
     }

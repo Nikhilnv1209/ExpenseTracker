@@ -417,6 +417,10 @@ fun HomeScreen(
                     viewModel.removeReminder(txn.id)
                     selectedTransaction = null
                 },
+                onDelete = {
+                    viewModel.deleteTransaction(txn.id)
+                    selectedTransaction = null
+                },
             )
         }
 
