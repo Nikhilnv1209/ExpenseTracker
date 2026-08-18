@@ -4,6 +4,8 @@ import android.content.Context
 import com.expensetracker.app.data.local.AliasDao
 import com.expensetracker.app.data.local.AppDatabase
 import com.expensetracker.app.data.local.CategoryRuleDao
+import com.expensetracker.app.data.local.ChatMessageDao
+import com.expensetracker.app.data.local.ChatSessionDao
 import com.expensetracker.app.data.local.IgnoredSenderDao
 import com.expensetracker.app.data.local.ReminderDao
 import com.expensetracker.app.data.local.TransactionDao
@@ -52,5 +54,17 @@ object DatabaseModule {
     @Singleton
     fun provideReminderDao(database: AppDatabase): ReminderDao {
         return database.reminderDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideChatSessionDao(database: AppDatabase): ChatSessionDao {
+        return database.chatSessionDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideChatMessageDao(database: AppDatabase): ChatMessageDao {
+        return database.chatMessageDao()
     }
 }
