@@ -4,22 +4,51 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class AiSettingsStore(context: Context) {
 
-    private val masterKey = MasterKey.Builder(context.applicationContext)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
+    private val prefs: SharedPreferences = createPrefs(context.applicationContext)
 
-    private val prefs: SharedPreferences = EncryptedSharedPreferences.create(
-        context.applicationContext,
-        "ai_settings_encrypted",
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-    )
+    private fun createPrefs(appContext: Context): SharedPreferences {
+        val name = "ai_settings_encrypted"
+        val masterKey = MasterKey.Builder(appContext)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        return try {
+            val p = EncryptedSharedPreferences.create(
+                appContext,
+                name,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+            )
+            p.all
+            p
+        } catch (e: Exception) {
+            // The encrypted file was written under a previous install's Keystore key (e.g. after
+            // uninstall+reinstall, or a device restore). It can no longer be decrypted, so drop
+            // it and start fresh instead of crashing when the AI screen is opened.
+            appContext.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().apply()
+            File(appContext.dataDir, "shared_prefs/$name.xml").delete()
+            try {
+                val p = EncryptedSharedPreferences.create(
+                    appContext,
+                    name,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+                )
+                p.all
+                p
+            } catch (_: Exception) {
+                // Last-resort throwaway prefs so the app stays usable.
+                appContext.getSharedPreferences(name + "_fallback", Context.MODE_PRIVATE)
+            }
+        }
+    }
 
     var isEnabled: Boolean
         get() = prefs.getBoolean(KEY_ENABLED, false)
