@@ -8,6 +8,7 @@ import android.os.Build
 import android.provider.Telephony
 import android.util.Log
 import com.expensetracker.app.data.local.AppDatabase
+import com.expensetracker.app.data.backup.BackupPendingRestore
 import com.expensetracker.app.notification.DailySummaryWorker
 import com.expensetracker.app.notification.ReminderCheckWorker
 import com.expensetracker.app.notification.ReminderScheduler
@@ -31,6 +32,8 @@ class ExpenseTrackerApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Apply any staged database restore before Room opens its connection.
+        BackupPendingRestore.apply(this)
         TransactionNotificationHelper.createChannels(this)
         DailySummaryWorker.schedule(this)
 

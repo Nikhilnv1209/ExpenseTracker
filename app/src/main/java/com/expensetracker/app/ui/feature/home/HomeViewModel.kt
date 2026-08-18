@@ -36,6 +36,7 @@ class HomeViewModel @Inject constructor(
     private val reminderDao: ReminderDao,
     private val smsImportUseCase: SmsImportUseCase,
     private val smsExportUseCase: com.expensetracker.app.sms.SmsExportUseCase,
+    private val backupUseCase: com.expensetracker.app.data.backup.BackupUseCase,
 ) : ViewModel() {
 
     private val prefs = appContext.getSharedPreferences("expense_tracker_prefs", Context.MODE_PRIVATE)
@@ -151,6 +152,36 @@ class HomeViewModel @Inject constructor(
 
     fun clearImportResult() {
         _uiState.update { it.copy(importResult = null) }
+    }
+
+    fun exportBackup(uri: android.net.Uri) {
+        viewModelScope.launch {
+            try {
+                appContext.contentResolver.openOutputStream(uri)?.use { out ->
+                    backupUseCase.exportBackup(out)
+                }
+                _uiState.update { it.copy(backupMessage = "Backup saved to your chosen location.") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(backupMessage = "Backup failed: ${e.message}") }
+            }
+        }
+    }
+
+    fun importBackup(uri: android.net.Uri) {
+        viewModelScope.launch {
+            try {
+                val input = appContext.contentResolver.openInputStream(uri)
+                    ?: error("Could not open the selected file")
+                input.use { backupUseCase.importBackup(it) }
+                _uiState.update { it.copy(restoreReady = true, backupMessage = null) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(backupMessage = "Restore failed: ${e.message}") }
+            }
+        }
+    }
+
+    fun clearBackupMessage() {
+        _uiState.update { it.copy(backupMessage = null) }
     }
 
     fun exportBankSmsToFile(onResult: (String) -> Unit) {
@@ -389,4 +420,6 @@ data class HomeUiState(
     val balanceMode: Int = 0,
     val filter: TransactionFilter = TransactionFilter(),
     val bankSuggestions: List<String> = emptyList(),
+    val backupMessage: String? = null,
+    val restoreReady: Boolean = false,
 )

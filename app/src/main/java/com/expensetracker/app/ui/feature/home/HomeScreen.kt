@@ -2,7 +2,10 @@ package com.expensetracker.app.ui.feature.home
 
 import androidx.activity.compose.BackHandler
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Process
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
@@ -137,12 +140,15 @@ fun formatAmount(amount: Double, currency: Currency): String {
 @Composable
 fun HomeScreen(
     onSeeAll: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     onViewExcluded: () -> Unit = {},
     onManageAliases: () -> Unit = {},
     onIgnoredSenders: () -> Unit = {},
     onCategoryRules: () -> Unit = {},
     onOpenAgent: () -> Unit = {},
     onReminders: () -> Unit = {},
+    selectedCurrency: Currency = currencies[1],
+    onSelectCurrency: (Currency) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -156,8 +162,6 @@ fun HomeScreen(
         true
     }
 
-    var selectedCurrency by remember { mutableStateOf(currencies[1]) }
-    var showSettings by remember { mutableStateOf(false) }
     var showFilter by remember { mutableStateOf(false) }
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
     var showAddTransaction by remember { mutableStateOf(false) }
@@ -170,20 +174,6 @@ fun HomeScreen(
             addTransactionContent = false
         }
     }
-
-    val smsPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions(),
-    ) { permissions ->
-        val granted = permissions[Manifest.permission.READ_SMS] == true &&
-            permissions[Manifest.permission.RECEIVE_SMS] == true
-        if (granted) {
-            viewModel.importFromSms()
-            (context.applicationContext as com.expensetracker.app.ExpenseTrackerApplication)
-                .registerSmsReceiverIfNeeded()
-        }
-    }
-
-    var exportMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uiState.transactions) {
         val activity = context as? android.app.Activity
@@ -201,9 +191,8 @@ fun HomeScreen(
         }
     }
 
-    val isSheetOpen = showSettings || selectedTransaction != null || showFilter || showAddTransaction
+    val isSheetOpen = selectedTransaction != null || showFilter || showAddTransaction
     BackHandler(enabled = isSheetOpen) {
-        showSettings = false
         showFilter = false
         selectedTransaction = null
         showAddTransaction = false
@@ -212,7 +201,6 @@ fun HomeScreen(
     LiquidGlassLayout(
         isSheetOpen = isSheetOpen,
         onDismiss = {
-            showSettings = false
             showFilter = false
             selectedTransaction = null
             showAddTransaction = false
@@ -233,7 +221,7 @@ fun HomeScreen(
                 ) {
                 item { Spacer(modifier = Modifier.height(8.dp)) }
                 item { GreetingHeader(
-                    onSettingsClick = { showSettings = true },
+                    onSettingsClick = onOpenSettings,
                     onFilterClick = { showFilter = true; viewModel.loadBankSuggestions() },
                     onAgentClick = onOpenAgent,
                     hasActiveFilter = uiState.filter != TransactionFilter(),
@@ -314,63 +302,6 @@ fun HomeScreen(
             )
         }
 
-        if (showSettings) {
-            SettingsSheet(
-                current = selectedCurrency,
-                onSelectCurrency = { selectedCurrency = it; showSettings = false },
-                onViewExcluded = {
-                    showSettings = false
-                    onViewExcluded()
-                },
-                onManageAliases = {
-                    showSettings = false
-                    onManageAliases()
-                },
-                onIgnoredSenders = {
-                    showSettings = false
-                    onIgnoredSenders()
-                },
-                onCategoryRules = {
-                    showSettings = false
-                    onCategoryRules()
-                },
-                onReminders = {
-                    showSettings = false
-                    onReminders()
-                },
-                onOpenAgent = {
-                    showSettings = false
-                    onOpenAgent()
-                },
-                onImportSms = {
-                    showSettings = false
-                    when (PackageManager.PERMISSION_GRANTED) {
-                        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) -> {
-                            viewModel.importFromSms()
-                        }
-                        else -> {
-                            smsPermissionLauncher.launch(
-                                arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
-                            )
-                        }
-                    }
-                },
-                onExportSms = {
-                    showSettings = false
-                    when (PackageManager.PERMISSION_GRANTED) {
-                        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) -> {
-                            viewModel.exportBankSmsToFile { exportMessage = it }
-                        }
-                        else -> {
-                            smsPermissionLauncher.launch(
-                                arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
-                            )
-                        }
-                    }
-                },
-            )
-        }
-
         selectedTransaction?.let { txn ->
             val categoryRule by androidx.compose.runtime.produceState(
                 initialValue = null as Category?,
@@ -436,18 +367,6 @@ fun HomeScreen(
         }
     }
 
-    exportMessage?.let { message ->
-        AlertDialog(
-            onDismissRequest = { exportMessage = null },
-            confirmButton = {
-                TextButton(onClick = { exportMessage = null }) {
-                    Text("OK")
-                }
-            },
-            title = { Text("Export SMS") },
-            text = { Text(message) },
-        )
-    }
 }
 
 @Composable
@@ -1180,237 +1099,6 @@ private fun TransactionItem(transaction: Transaction, currency: Currency, onClic
 
             Spacer(Modifier.width(16.dp))
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SettingsSheet(
-    current: Currency,
-    onSelectCurrency: (Currency) -> Unit,
-    onViewExcluded: () -> Unit,
-    onManageAliases: () -> Unit,
-    onIgnoredSenders: () -> Unit,
-    onCategoryRules: () -> Unit,
-    onReminders: () -> Unit,
-    onOpenAgent: () -> Unit,
-    onImportSms: () -> Unit,
-    onExportSms: () -> Unit,
-) {
-    var showCurrencyPicker by remember { mutableStateOf(false) }
-
-    if (showCurrencyPicker) {
-        CurrencyPickerSheet(
-            current = current,
-            onSelect = {
-                onSelectCurrency(it)
-                showCurrencyPicker = false
-            },
-        )
-    } else {
-        SettingsContent(
-            current = current,
-            onShowCurrencyPicker = { showCurrencyPicker = true },
-            onViewExcluded = onViewExcluded,
-            onManageAliases = onManageAliases,
-            onIgnoredSenders = onIgnoredSenders,
-            onCategoryRules = onCategoryRules,
-            onReminders = onReminders,
-            onOpenAgent = onOpenAgent,
-            onImportSms = onImportSms,
-            onExportSms = onExportSms,
-        )
-    }
-}
-
-@Composable
-private fun SettingsContent(
-    current: Currency,
-    onShowCurrencyPicker: () -> Unit,
-    onViewExcluded: () -> Unit,
-    onManageAliases: () -> Unit,
-    onIgnoredSenders: () -> Unit,
-    onCategoryRules: () -> Unit,
-    onReminders: () -> Unit,
-    onOpenAgent: () -> Unit,
-    onImportSms: () -> Unit,
-    onExportSms: () -> Unit,
-) {
-    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
-        Text(
-            text = "Settings",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SettingsRow(
-            icon = Icons.Rounded.AccountBalanceWallet,
-            title = "Currency",
-            subtitle = "${current.name} (${current.code})",
-            onClick = onShowCurrencyPicker,
-        )
-
-        SettingsRow(
-            icon = Icons.Rounded.Undo,
-            title = "Excluded Transactions",
-            subtitle = "View and restore excluded items",
-            onClick = onViewExcluded,
-        )
-
-        SettingsRow(
-            icon = Icons.Rounded.Edit,
-            title = "Manage Aliases",
-            subtitle = "Rename and organize transaction titles",
-            onClick = onManageAliases,
-        )
-
-        SettingsRow(
-            icon = Icons.Rounded.Category,
-            title = "Category Rules",
-            subtitle = "Auto-categorize transactions by sender",
-            onClick = onCategoryRules,
-        )
-
-        SettingsRow(
-            icon = Icons.Rounded.Notifications,
-            title = "Payment Reminders",
-            subtitle = "Manage upcoming payment alerts",
-            onClick = onReminders,
-        )
-
-        SettingsRow(
-            icon = Icons.Rounded.Block,
-            title = "Ignored Senders",
-            subtitle = "Skip transactions from specific senders",
-            onClick = onIgnoredSenders,
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Button(
-            onClick = onImportSms,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Text("Import from SMS")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Button(
-            onClick = onExportSms,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Text("Export Raw Bank SMS")
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-    }
-}
-
-@Composable
-private fun SettingsRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .background(
-                    color = Color(0xFF7C3AED).copy(alpha = 0.12f),
-                    shape = CircleShape,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = Color(0xFF7C3AED),
-                modifier = Modifier.size(22.dp),
-            )
-        }
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = subtitle,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun CurrencyPickerSheet(current: Currency, onSelect: (Currency) -> Unit) {
-    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
-        Text(
-            text = "Select Currency",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        currencies.forEach { currency ->
-            val isSelected = currency.code == current.code
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(currency) }
-                    .padding(vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = currency.symbol,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSelected) Color(0xFF7C3AED) else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.width(48.dp),
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = currency.code,
-                        fontSize = 16.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = currency.name,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    )
-                }
-                if (isSelected) {
-                    Text(
-                        text = "\u2713",
-                        fontSize = 18.sp,
-                        color = Color(0xFF7C3AED),
-                    )
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 

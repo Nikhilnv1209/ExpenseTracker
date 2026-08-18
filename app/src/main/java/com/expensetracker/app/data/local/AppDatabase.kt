@@ -22,7 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun chatMessageDao(): ChatMessageDao
 
     companion object {
-        private const val DATABASE_NAME = "expense_tracker.db"
+        const val DATABASE_NAME = "expense_tracker.db"
 
         @Volatile
         private var instance: AppDatabase? = null

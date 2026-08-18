@@ -13,6 +13,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -22,7 +26,9 @@ import com.expensetracker.app.ui.feature.aliases.AliasesScreen
 import com.expensetracker.app.ui.feature.categoryrules.CategoryRulesScreen
 import com.expensetracker.app.ui.feature.excluded.ExcludedTransactionsScreen
 import com.expensetracker.app.ui.feature.home.HomeScreen
+import com.expensetracker.app.ui.feature.home.currencies
 import com.expensetracker.app.ui.feature.ignored.IgnoredSendersScreen
+import com.expensetracker.app.ui.feature.settings.SettingsScreen
 import com.expensetracker.app.ui.feature.transactionlist.TransactionListScreen
 import com.expensetracker.app.ui.theme.ExpenseTrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -46,6 +52,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     val navController = rememberNavController()
+                    var selectedCurrency by remember { mutableStateOf(currencies[1]) }
                     NavHost(
                         navController = navController,
                         startDestination = "home",
@@ -77,6 +84,22 @@ class MainActivity : ComponentActivity() {
                         composable("home") {
                             HomeScreen(
                                 onSeeAll = { navController.navigate("transactions") },
+                                onOpenSettings = { navController.navigate("settings") },
+                                onViewExcluded = { navController.navigate("excluded") },
+                                onManageAliases = { navController.navigate("aliases") },
+                                onIgnoredSenders = { navController.navigate("ignored") },
+                                onCategoryRules = { navController.navigate("category_rules") },
+                                onReminders = { navController.navigate("reminders") },
+                                onOpenAgent = { navController.navigate("agent") },
+                                selectedCurrency = selectedCurrency,
+                                onSelectCurrency = { selectedCurrency = it },
+                            )
+                        }
+                        composable("settings") {
+                            SettingsScreen(
+                                onBack = { navController.popBackStack() },
+                                selectedCurrency = selectedCurrency,
+                                onSelectCurrency = { selectedCurrency = it },
                                 onViewExcluded = { navController.navigate("excluded") },
                                 onManageAliases = { navController.navigate("aliases") },
                                 onIgnoredSenders = { navController.navigate("ignored") },
