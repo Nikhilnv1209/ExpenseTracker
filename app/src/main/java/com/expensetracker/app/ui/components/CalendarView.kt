@@ -91,12 +91,12 @@ fun CalendarView(
     Column(modifier = Modifier.padding(16.dp)) {
         MonthHeader(displayYear, displayMonth,
             onPrev = {
-                if (baseMonth == 0) { baseMonth = 11; baseYear-- } else baseMonth--
-                weekOffset = 0; selectedDay = -1
+                weekOffset -= 1
+                selectedDay = -1
             },
             onNext = {
-                if (baseMonth == 11) { baseMonth = 0; baseYear++ } else baseMonth++
-                weekOffset = 0; selectedDay = -1
+                weekOffset += 1
+                selectedDay = -1
             },
         )
         Spacer(modifier = Modifier.height(12.dp))
