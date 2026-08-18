@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -139,9 +140,11 @@ fun SettingsScreen(
             .statusBarsPadding(),
     ) {
         TopAppBar(
-            title = { Text("Settings") },
+            title = { Text(if (showCurrencyPicker) "Currency" else "Settings") },
             navigationIcon = {
-                IconButton(onClick = onBack) {
+                IconButton(onClick = {
+                    if (showCurrencyPicker) showCurrencyPicker = false else onBack()
+                }) {
                     Icon(Icons.Rounded.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
                 }
             },
@@ -157,14 +160,14 @@ fun SettingsScreen(
                     onSelectCurrency(it)
                     showCurrencyPicker = false
                 },
-                onBack = { showCurrencyPicker = false },
             )
         } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 SettingsRow(
                     icon = Icons.Rounded.AccountBalanceWallet,
@@ -215,8 +218,6 @@ fun SettingsScreen(
                     onClick = onOpenAgent,
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Button(
                     onClick = {
                         when (PackageManager.PERMISSION_GRANTED) {
@@ -239,8 +240,6 @@ fun SettingsScreen(
                     Text("Import from SMS")
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Button(
                     onClick = {
                         when (PackageManager.PERMISSION_GRANTED) {
@@ -261,7 +260,7 @@ fun SettingsScreen(
                     Text("Export Raw Bank SMS")
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
                     text = "Backup & Restore",
@@ -275,8 +274,6 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Button(
                     onClick = {
                         exportBackupLauncher.launch("expense-tracker-backup-${java.time.LocalDate.now()}.zip")
@@ -286,8 +283,6 @@ fun SettingsScreen(
                 ) {
                     Text("Export Backup")
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
                     onClick = {
@@ -373,27 +368,22 @@ private fun SettingsRow(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
-            )
-            .padding(vertical = 14.dp),
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(42.dp)
-                .background(
-                    color = Color(0xFF7C3AED).copy(alpha = 0.12f),
-                    shape = CircleShape,
-                ),
+                .size(24.dp),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = title,
                 tint = Color(0xFF7C3AED),
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(24.dp),
             )
         }
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -411,47 +401,20 @@ private fun SettingsRow(
 }
 
 @Composable
-private fun CurrencyPickerContent(current: Currency, onSelect: (Currency) -> Unit, onBack: () -> Unit) {
+private fun CurrencyPickerContent(current: Currency, onSelect: (Currency) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onBack),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.ArrowBack,
-                    contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-            Text(
-                text = "Select Currency",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
         currencies.forEach { currency ->
             val isSelected = currency.code == current.code
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(currency) }
-                    .padding(vertical = 14.dp),
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(currency) },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
