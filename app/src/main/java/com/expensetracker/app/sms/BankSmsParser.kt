@@ -212,7 +212,7 @@ object BankSmsParser {
     )
 
     private val accountPatterns = listOf(
-        Pattern.compile("(?:a/c|account|card|ac)(?:\\s*(?:no)?\\.?\\s*)(?:\\.{3}|xx|ending|ending\\s+with|#)?\\s*([0-9]{2,6})", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("(?:a/c|account|card|ac)(?:\\s*(?:no)?\\.?\\s*)(?:\\.{3}|xx?|\\*|ending|ending\\s+with|#)?\\s*([0-9]{2,6})", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?:xx|\\.\\.\\.\\.\\.\\.\\.\\.\\.\\.)([0-9]{2,6})", Pattern.CASE_INSENSITIVE),
         Pattern.compile("\\b([0-9]{4})\\b(?=.*(?:a/c|account|card|debit|credited|debited))", Pattern.CASE_INSENSITIVE),
     )
@@ -372,9 +372,13 @@ object BankSmsParser {
     }
 
     private fun extractBankName(address: String, body: String): String {
-        val searchText = "$address $body".uppercase(Locale.ENGLISH)
+        val upperAddress = address.uppercase(Locale.ENGLISH)
         for ((keyword, bankName) in bankKeywords) {
-            if (searchText.contains(keyword)) return bankName
+            if (upperAddress.contains(keyword)) return bankName
+        }
+        val upperBody = body.uppercase(Locale.ENGLISH)
+        for ((keyword, bankName) in bankKeywords) {
+            if (upperBody.contains(keyword)) return bankName
         }
         return "Bank"
     }
@@ -383,7 +387,9 @@ object BankSmsParser {
         for (pattern in accountPatterns) {
             val matcher = pattern.matcher(body)
             if (matcher.find()) {
-                matcher.group(1)?.let { return it }
+                matcher.group(1)?.let { raw ->
+                    return if (raw.length > 4) raw.takeLast(4) else raw
+                }
             }
         }
         return null

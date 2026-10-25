@@ -27,6 +27,7 @@ class ExpenseTrackerApplication : Application() {
     val ignoredSenderDao by lazy { AppDatabase.getInstance(this).ignoredSenderDao() }
     val categoryRuleDao by lazy { AppDatabase.getInstance(this).categoryRuleDao() }
     val reminderDao by lazy { AppDatabase.getInstance(this).reminderDao() }
+    val accountDao by lazy { AppDatabase.getInstance(this).accountDao() }
 
     private var smsReceiver: SmsReceiver? = null
 

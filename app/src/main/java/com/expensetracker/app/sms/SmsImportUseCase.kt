@@ -1,6 +1,7 @@
 package com.expensetracker.app.sms
 
 import android.util.Log
+import com.expensetracker.app.data.local.AccountDao
 import com.expensetracker.app.data.local.AliasDao
 import com.expensetracker.app.data.local.CategoryRuleDao
 import com.expensetracker.app.data.local.IgnoredSenderDao
@@ -19,6 +20,7 @@ class SmsImportUseCase @Inject constructor(
     private val aliasDao: AliasDao,
     private val ignoredSenderDao: IgnoredSenderDao,
     private val categoryRuleDao: CategoryRuleDao,
+    private val accountDao: AccountDao,
 ) {
 
     suspend fun importTransactions(): SmsImportResult {
@@ -36,6 +38,9 @@ class SmsImportUseCase @Inject constructor(
         var skipped = 0
 
         parsed.forEach { parsedTx ->
+            val account = parsedTx.accountLast4?.let { last4 ->
+                accountDao.findByBankAndLast4(parsedTx.bankName, last4)
+            }
             if (parsedTx.description.lowercase() in ignoredSenders) {
                 skipped++
                 return@forEach
@@ -64,6 +69,8 @@ class SmsImportUseCase @Inject constructor(
                     type = if (parsedTx.type == TransactionType.CREDIT) "INCOME" else "EXPENSE",
                     bankName = parsedTx.bankName,
                     accountLast4 = parsedTx.accountLast4,
+                    accountId = account?.id ?: existing.accountId,
+                    accountName = account?.name ?: existing.accountName,
                     rawSms = parsedTx.rawSms,
                     alias = resolvedAlias,
                 )
@@ -84,6 +91,8 @@ class SmsImportUseCase @Inject constructor(
                 note = buildNote(parsedTx),
                 bankName = parsedTx.bankName,
                 accountLast4 = parsedTx.accountLast4,
+                accountId = account?.id,
+                accountName = account?.name,
                 rawSms = parsedTx.rawSms,
                 smsDate = parsedTx.smsDate,
                 alias = resolvedAlias,
@@ -102,11 +111,7 @@ class SmsImportUseCase @Inject constructor(
     }
 
     private fun buildNote(parsed: ParsedSmsTransaction): String {
-        val parts = mutableListOf<String>()
-        parsed.bankName?.let { parts.add(it) }
-        parsed.accountLast4?.let { parts.add("A/c ..$it") }
-        parsed.time?.let { parts.add(it.toString()) }
-        return if (parts.isEmpty()) "Imported from SMS" else parts.joinToString(" · ")
+        return parsed.time?.toString() ?: "Imported from SMS"
     }
 }
 

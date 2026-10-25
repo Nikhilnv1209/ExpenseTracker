@@ -49,6 +49,7 @@ class SmsReceiver : BroadcastReceiver() {
                     val aliasDao = app.aliasDao
                     val ignoredSenderDao = app.ignoredSenderDao
                     val categoryRuleDao = app.categoryRuleDao
+                    val accountDao = app.accountDao
 
                     val ignoredSenders = ignoredSenderDao.getAll().map { it.sender.lowercase() }.toSet()
                     if (parsed.description.lowercase() in ignoredSenders) {
@@ -69,6 +70,9 @@ class SmsReceiver : BroadcastReceiver() {
                     }
 
                     val resolvedAlias = aliasDao.findByOriginalTitle(parsed.description)?.alias
+                    val account = parsed.accountLast4?.let { last4 ->
+                        accountDao.findByBankAndLast4(parsed.bankName, last4)
+                    }
                     val ruleCategory = categoryRuleDao.findByTitle(parsed.description)?.category
                         ?.let { Category.fromDisplayName(it) } ?: parsed.category
                     val transaction = com.expensetracker.app.domain.model.Transaction(
@@ -77,13 +81,11 @@ class SmsReceiver : BroadcastReceiver() {
                         category = ruleCategory,
                         isIncome = parsed.type == TransactionType.CREDIT,
                         date = parsed.date,
-                        note = buildString {
-                            parsed.bankName?.let { append(it); append(" · ") }
-                            parsed.accountLast4?.let { append("A/c ..$it"); append(" · ") }
-                            parsed.time?.let { append(it) }
-                        }.trimEnd(' ', '·').ifBlank { "Auto-imported from SMS" },
+                        note = parsed.time?.toString() ?: "Imported from SMS",
                         bankName = parsed.bankName,
                         accountLast4 = parsed.accountLast4,
+                        accountId = account?.id,
+                        accountName = account?.name,
                         rawSms = parsed.rawSms,
                         smsDate = parsed.smsDate,
                         alias = resolvedAlias,

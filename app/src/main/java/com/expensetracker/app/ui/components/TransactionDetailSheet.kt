@@ -646,7 +646,9 @@ fun TransactionDetailSheet(
                     valueColor = if (transaction.isIncome) Color(0xFF4CAF50) else Color(0xFFE91E63))
                 DetailRow("Date", transaction.date.format(fullDateFormatter))
                 transaction.bankName?.let { DetailRow("Bank", it) }
-                transaction.accountLast4?.let { DetailRow("Account", "****$it") }
+                (transaction.accountName ?: transaction.accountLast4?.let { "••••$it" })?.let {
+                    DetailRow("Account", it)
+                }
                 transaction.note?.let { DetailRow("Note", it) }
             }
         }

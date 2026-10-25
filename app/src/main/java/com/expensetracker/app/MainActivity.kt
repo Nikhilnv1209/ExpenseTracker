@@ -25,6 +25,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.expensetracker.app.ui.feature.agent.AgentChatScreen
+import com.expensetracker.app.ui.feature.accounts.AccountsScreen
 import com.expensetracker.app.ui.feature.aliases.AliasesScreen
 import com.expensetracker.app.ui.feature.categoryrules.CategoryRulesScreen
 import com.expensetracker.app.ui.feature.excluded.ExcludedTransactionsScreen
@@ -121,6 +122,7 @@ class MainActivity : ComponentActivity() {
                                 onSelectCurrency = { selectedCurrency = it },
                                 onViewExcluded = { navController.navigate("excluded") },
                                 onManageAliases = { navController.navigate("aliases") },
+                                onManageAccounts = { navController.navigate("accounts") },
                                 onIgnoredSenders = { navController.navigate("ignored") },
                                 onCategoryRules = { navController.navigate("category_rules") },
                                 onReminders = { navController.navigate("reminders") },
@@ -135,6 +137,9 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("aliases") {
                             AliasesScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable("accounts") {
+                            AccountsScreen(onBack = { navController.popBackStack() })
                         }
                         composable("ignored") {
                             IgnoredSendersScreen(onBack = { navController.popBackStack() })

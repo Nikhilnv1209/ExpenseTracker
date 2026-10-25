@@ -344,7 +344,7 @@ private fun TransactionListItem(transaction: Transaction, currency: com.expenset
                         fontSize = 12.sp,
                         color = catColor,
                     )
-                    transaction.bankName?.let { bank ->
+                    (transaction.accountName ?: transaction.bankName)?.let { bank ->
                         Text(
                             text = " · $bank",
                             fontSize = 12.sp,

@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -76,6 +77,7 @@ fun SettingsScreen(
     onSelectCurrency: (Currency) -> Unit,
     onViewExcluded: () -> Unit,
     onManageAliases: () -> Unit,
+    onManageAccounts: () -> Unit,
     onIgnoredSenders: () -> Unit,
     onCategoryRules: () -> Unit,
     onReminders: () -> Unit,
@@ -188,6 +190,13 @@ fun SettingsScreen(
                     title = "Manage Aliases",
                     subtitle = "Rename and organize transaction titles",
                     onClick = onManageAliases,
+                )
+
+                SettingsRow(
+                    icon = Icons.Rounded.AccountBalance,
+                    title = "Banks & Cards",
+                    subtitle = "Name accounts and cards used in transactions",
+                    onClick = onManageAccounts,
                 )
 
                 SettingsRow(

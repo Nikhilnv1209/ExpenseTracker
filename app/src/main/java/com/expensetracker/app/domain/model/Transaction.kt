@@ -37,6 +37,8 @@ data class Transaction(
     val note: String? = null,
     val bankName: String? = null,
     val accountLast4: String? = null,
+    val accountId: Long? = null,
+    val accountName: String? = null,
     val rawSms: String? = null,
     val smsDate: Long? = null,
     val isExcluded: Boolean = false,
@@ -47,4 +49,13 @@ data class Transaction(
 ) {
     /** Per-transaction name, then the title-wide alias, then the parsed title. */
     val displayTitle: String get() = customTitle ?: alias ?: title
+
+    /** Friendly account name, falling back to the parsed bank/last4. */
+    val displayAccount: String?
+        get() = accountName ?: when {
+            !bankName.isNullOrBlank() && !accountLast4.isNullOrBlank() -> "$bankName ··$accountLast4"
+            !bankName.isNullOrBlank() -> bankName
+            !accountLast4.isNullOrBlank() -> "··$accountLast4"
+            else -> null
+        }
 }

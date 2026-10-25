@@ -1,6 +1,7 @@
 package com.expensetracker.app.di
 
 import android.content.Context
+import com.expensetracker.app.data.local.AccountDao
 import com.expensetracker.app.data.local.AliasDao
 import com.expensetracker.app.data.local.AppDatabase
 import com.expensetracker.app.data.local.CategoryRuleDao
@@ -54,6 +55,12 @@ object DatabaseModule {
     @Singleton
     fun provideReminderDao(database: AppDatabase): ReminderDao {
         return database.reminderDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideAccountDao(database: AppDatabase): AccountDao {
+        return database.accountDao()
     }
 
     @Provides

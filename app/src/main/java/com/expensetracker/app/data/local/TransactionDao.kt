@@ -102,6 +102,39 @@ interface TransactionDao {
     @Query("UPDATE transactions SET customTitle = :customTitle WHERE id = :id")
     suspend fun setCustomTitle(id: Long, customTitle: String?)
 
+    @Query("""
+        UPDATE transactions SET accountId = :accountId, accountName = :accountName
+        WHERE accountId IS NULL
+          AND accountLast4 = :last4
+          AND LOWER(bankName) = LOWER(:bankName)
+    """)
+    suspend fun linkTransactionsToAccount(
+        accountId: Long,
+        accountName: String,
+        bankName: String,
+        last4: String,
+    ): Int
+
+    @Query("UPDATE transactions SET accountName = :accountName WHERE accountId = :accountId")
+    suspend fun renameAccountInTransactions(accountId: Long, accountName: String)
+
+    @Query("UPDATE transactions SET accountId = NULL, accountName = NULL WHERE accountId = :accountId")
+    suspend fun unlinkAccountFromTransactions(accountId: Long)
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE accountId = :accountId")
+    suspend fun countTransactionsForAccount(accountId: Long): Int
+
+    @Query("""
+        SELECT bankName, accountLast4 AS last4, COUNT(*) AS transactionCount
+        FROM transactions
+        WHERE accountId IS NULL
+          AND bankName IS NOT NULL
+          AND accountLast4 IS NOT NULL
+        GROUP BY bankName, accountLast4
+        ORDER BY transactionCount DESC, bankName ASC
+    """)
+    suspend fun getDetectedAccounts(): List<DetectedAccount>
+
     @Query("UPDATE transactions SET category = :category WHERE id = :id")
     suspend fun updateCategory(id: Long, category: String)
 

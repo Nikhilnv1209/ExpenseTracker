@@ -1,6 +1,7 @@
 package com.expensetracker.app.di
 
 import android.content.Context
+import com.expensetracker.app.data.local.AccountDao
 import com.expensetracker.app.data.local.AliasDao
 import com.expensetracker.app.data.local.CategoryRuleDao
 import com.expensetracker.app.data.local.IgnoredSenderDao
@@ -33,8 +34,9 @@ object SmsModule {
         aliasDao: AliasDao,
         ignoredSenderDao: IgnoredSenderDao,
         categoryRuleDao: CategoryRuleDao,
+        accountDao: AccountDao,
     ): SmsImportUseCase {
-        return SmsImportUseCase(smsReader, transactionDao, aliasDao, ignoredSenderDao, categoryRuleDao)
+        return SmsImportUseCase(smsReader, transactionDao, aliasDao, ignoredSenderDao, categoryRuleDao, accountDao)
     }
 
     @Provides
