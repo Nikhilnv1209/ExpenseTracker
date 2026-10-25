@@ -1,6 +1,7 @@
 package com.expensetracker.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -13,6 +14,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.expensetracker.app.ui.feature.agent.AgentChatScreen
 import com.expensetracker.app.ui.feature.aliases.AliasesScreen
@@ -31,18 +34,21 @@ import com.expensetracker.app.ui.feature.ignored.IgnoredSendersScreen
 import com.expensetracker.app.ui.feature.settings.SettingsScreen
 import com.expensetracker.app.ui.feature.transactionlist.TransactionListScreen
 import com.expensetracker.app.ui.theme.ExpenseTrackerTheme
+import com.expensetracker.app.notification.TransactionNotificationHelper
 import dagger.hilt.android.AndroidEntryPoint
 
 private const val ANIM_DURATION = 350
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val pendingTransactionId = mutableStateOf<Long?>(null)
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingTransactionId.value = intent.notificationTransactionId()
         requestNotificationPermissionIfNeeded()
         enableEdgeToEdge()
         setContent {
@@ -53,6 +59,17 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
                     var selectedCurrency by remember { mutableStateOf(currencies[1]) }
+                    val pendingId = pendingTransactionId.value
+                    val backStackEntry by navController.currentBackStackEntryAsState()
+                    val currentRoute = backStackEntry?.destination?.route
+                    LaunchedEffect(pendingId, currentRoute) {
+                        if (pendingId != null && currentRoute != null && currentRoute != "home") {
+                            navController.navigate("home") {
+                                popUpTo("home") { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
                     NavHost(
                         navController = navController,
                         startDestination = "home",
@@ -93,6 +110,8 @@ class MainActivity : ComponentActivity() {
                                 onOpenAgent = { navController.navigate("agent") },
                                 selectedCurrency = selectedCurrency,
                                 onSelectCurrency = { selectedCurrency = it },
+                                pendingTransactionId = pendingId,
+                                onTransactionHandled = { pendingTransactionId.value = null },
                             )
                         }
                         composable("settings") {
@@ -133,6 +152,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.notificationTransactionId()?.let { pendingTransactionId.value = it }
+    }
+
+    private fun Intent.notificationTransactionId(): Long? {
+        val id = getLongExtra(TransactionNotificationHelper.EXTRA_TRANSACTION_ID, -1L)
+        return id.takeIf { it >= 0L }
     }
 
     private fun requestNotificationPermissionIfNeeded() {

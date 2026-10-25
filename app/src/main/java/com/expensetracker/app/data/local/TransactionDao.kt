@@ -26,6 +26,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE isExcluded = 1 ORDER BY date DESC, smsDate DESC, id DESC")
     suspend fun getExcluded(): List<TransactionEntity>
 
+    @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): TransactionEntity?
+
     @Query("SELECT * FROM transactions WHERE smsDate = :smsDate LIMIT 1")
     suspend fun findBySmsDate(smsDate: Long): TransactionEntity?
 

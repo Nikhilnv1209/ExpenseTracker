@@ -253,6 +253,10 @@ class HomeViewModel @Inject constructor(
         return categoryRuleDao.findByTitle(title)?.category?.let { Category.fromDisplayName(it) }
     }
 
+    suspend fun getTransaction(transactionId: Long): Transaction? {
+        return transactionDao.getById(transactionId)?.toDomain()
+    }
+
     fun setReminder(transaction: Transaction, daysBefore: Int, customDate: Long? = null, hour: Int = 9, minute: Int = 0) {
         viewModelScope.launch {
             val existing = reminderDao.findByTransactionId(transaction.id)

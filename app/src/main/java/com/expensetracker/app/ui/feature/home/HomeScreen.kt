@@ -2,7 +2,6 @@ package com.expensetracker.app.ui.feature.home
 
 import androidx.activity.compose.BackHandler
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Process
 import android.widget.Toast
@@ -149,6 +148,8 @@ fun HomeScreen(
     onReminders: () -> Unit = {},
     selectedCurrency: Currency = currencies[1],
     onSelectCurrency: (Currency) -> Unit = {},
+    pendingTransactionId: Long? = null,
+    onTransactionHandled: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -175,20 +176,12 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(uiState.transactions) {
-        val activity = context as? android.app.Activity
-        val txnId = activity?.intent?.getLongExtra(
-            com.expensetracker.app.notification.TransactionNotificationHelper.EXTRA_TRANSACTION_ID,
-            -1L,
-        ) ?: -1L
-        if (txnId != -1L) {
-            uiState.transactions.find { it.id == txnId }?.let { txn ->
-                selectedTransaction = txn
-                activity?.intent?.removeExtra(
-                    com.expensetracker.app.notification.TransactionNotificationHelper.EXTRA_TRANSACTION_ID,
-                )
-            }
+    LaunchedEffect(pendingTransactionId) {
+        val id = pendingTransactionId ?: return@LaunchedEffect
+        viewModel.getTransaction(id)?.let { transaction ->
+            selectedTransaction = transaction
         }
+        onTransactionHandled()
     }
 
     val isSheetOpen = selectedTransaction != null || showFilter || showAddTransaction

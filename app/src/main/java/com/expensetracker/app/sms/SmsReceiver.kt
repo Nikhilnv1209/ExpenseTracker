@@ -98,6 +98,8 @@ class SmsReceiver : BroadcastReceiver() {
                             title = parsed.description,
                             amount = parsed.amount,
                             isIncome = parsed.type == TransactionType.CREDIT,
+                            bankName = parsed.bankName,
+                            accountLast4 = parsed.accountLast4,
                         )
                     }
                 }
