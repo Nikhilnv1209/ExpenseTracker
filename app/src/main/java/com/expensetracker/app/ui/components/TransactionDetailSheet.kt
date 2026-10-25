@@ -91,6 +91,7 @@ fun TransactionDetailSheet(
     reminder: ReminderEntity? = null,
     onToggleExcluded: (Boolean) -> Unit = {},
     onSetAlias: (String?) -> Unit = {},
+    onSetCustomTitle: (String?) -> Unit = {},
     onSetNote: (String?) -> Unit = {},
     onSetCategory: (Category, Boolean) -> Unit = { _, _ -> },
     onSetCategoryExempt: (Boolean) -> Unit = {},
@@ -99,9 +100,11 @@ fun TransactionDetailSheet(
     onDelete: () -> Unit = {},
 ) {
     val catColor = categoryColor(transaction.category)
-    val displayTitle = transaction.alias ?: transaction.title
+    val displayTitle = transaction.displayTitle
     var isEditingAlias by remember { mutableStateOf(false) }
     var aliasText by remember { mutableStateOf(transaction.alias ?: "") }
+    var isEditingTitle by remember { mutableStateOf(false) }
+    var customTitleText by remember { mutableStateOf(transaction.customTitle ?: "") }
     var activeView by remember { mutableStateOf(DetailView.DETAIL) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -137,9 +140,13 @@ fun TransactionDetailSheet(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                if (transaction.alias != null) {
+                if (transaction.customTitle != null || transaction.alias != null) {
                     Text(
-                        text = "Originally: ${transaction.title}",
+                        text = if (transaction.customTitle != null) {
+                            "Parsed as: ${transaction.title}"
+                        } else {
+                            "Originally: ${transaction.title}"
+                        },
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                     )
@@ -209,12 +216,46 @@ fun TransactionDetailSheet(
             ) {
             if (isEditingAlias) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Set Alias",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Set Alias",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Cancel",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                    ) { isEditingAlias = false; aliasText = transaction.alias ?: "" }
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Save",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF7C3AED),
+                                modifier = Modifier
+                                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                                        val trimmed = aliasText.trim()
+                                        onSetAlias(trimmed.ifBlank { null })
+                                        isEditingAlias = false
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = "This alias will be applied to all past and future transactions with title \"${transaction.title}\"",
@@ -235,38 +276,6 @@ fun TransactionDetailSheet(
                         ),
                         shape = RoundedCornerShape(10.dp),
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        Text(
-                            text = "Cancel",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                ) { isEditingAlias = false; aliasText = transaction.alias ?: "" }
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "Save",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF7C3AED),
-                            modifier = Modifier
-                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                                    val trimmed = aliasText.trim()
-                                    onSetAlias(trimmed.ifBlank { null })
-                                    isEditingAlias = false
-                                }
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                        )
-                    }
                 }
             } else {
                 Row(
@@ -299,6 +308,112 @@ fun TransactionDetailSheet(
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        GlassCard(
+            shape = RoundedCornerShape(12.dp),
+            tint = Color(0xFF7C3AED),
+            tintAlpha = 0.06f,
+            borderAlpha = 0.08f,
+        ) {
+            if (isEditingTitle) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Rename Transaction",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Cancel",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                    ) { isEditingTitle = false; customTitleText = transaction.customTitle ?: "" }
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Save",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF7C3AED),
+                                modifier = Modifier
+                                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                                        onSetCustomTitle(customTitleText.trim().ifBlank { null })
+                                        isEditingTitle = false
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "This changes only this transaction. Use Set Alias to rename every transaction with the parsed title.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = customTitleText,
+                        onValueChange = { customTitleText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(transaction.title) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF7C3AED),
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                            cursorColor = Color(0xFF7C3AED),
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { isEditingTitle = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Edit,
+                        contentDescription = "Rename transaction",
+                        tint = Color(0xFF7C3AED),
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (transaction.customTitle != null) "Rename: ${transaction.customTitle}" else "Rename this transaction",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF7C3AED),
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = if (transaction.customTitle != null) "Tap to change or clear" else "Only this transaction, not all with this title",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }

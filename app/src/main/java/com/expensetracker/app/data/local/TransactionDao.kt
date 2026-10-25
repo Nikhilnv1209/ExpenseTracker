@@ -11,19 +11,19 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TransactionDao {
 
-    @Query("SELECT * FROM transactions WHERE isExcluded = 0 ORDER BY date DESC, id DESC")
+    @Query("SELECT * FROM transactions WHERE isExcluded = 0 ORDER BY date DESC, smsDate DESC, id DESC")
     fun observeAll(): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions WHERE isExcluded = 0 ORDER BY date DESC, id DESC")
+    @Query("SELECT * FROM transactions WHERE isExcluded = 0 ORDER BY date DESC, smsDate DESC, id DESC")
     suspend fun getAllSorted(): List<TransactionEntity>
 
-    @Query("SELECT * FROM transactions WHERE isExcluded = 0 AND date >= :startDate AND date <= :endDate ORDER BY date DESC, id DESC")
+    @Query("SELECT * FROM transactions WHERE isExcluded = 0 AND date >= :startDate AND date <= :endDate ORDER BY date DESC, smsDate DESC, id DESC")
     suspend fun getByDateRange(startDate: Long, endDate: Long): List<TransactionEntity>
 
-    @Query("SELECT * FROM transactions WHERE isExcluded = 0 ORDER BY date DESC LIMIT :limit")
+    @Query("SELECT * FROM transactions WHERE isExcluded = 0 ORDER BY date DESC, smsDate DESC, id DESC LIMIT :limit")
     suspend fun getRecent(limit: Int): List<TransactionEntity>
 
-    @Query("SELECT * FROM transactions WHERE isExcluded = 1 ORDER BY date DESC, id DESC")
+    @Query("SELECT * FROM transactions WHERE isExcluded = 1 ORDER BY date DESC, smsDate DESC, id DESC")
     suspend fun getExcluded(): List<TransactionEntity>
 
     @Query("SELECT * FROM transactions WHERE smsDate = :smsDate LIMIT 1")
@@ -96,6 +96,9 @@ interface TransactionDao {
     @Query("UPDATE transactions SET alias = :alias WHERE id = :id")
     suspend fun setAlias(id: Long, alias: String?)
 
+    @Query("UPDATE transactions SET customTitle = :customTitle WHERE id = :id")
+    suspend fun setCustomTitle(id: Long, customTitle: String?)
+
     @Query("UPDATE transactions SET category = :category WHERE id = :id")
     suspend fun updateCategory(id: Long, category: String)
 
@@ -118,10 +121,10 @@ interface TransactionDao {
         SELECT * FROM transactions WHERE isExcluded = 0 
         AND date >= :startDate AND date <= :endDate
         AND (:type IS NULL OR type = :type)
-        AND (:search IS NULL OR title LIKE '%' || :search || '%' OR alias LIKE '%' || :search || '%' OR bankName LIKE '%' || :search || '%')
+        AND (:search IS NULL OR title LIKE '%' || :search || '%' OR alias LIKE '%' || :search || '%' OR customTitle LIKE '%' || :search || '%' OR bankName LIKE '%' || :search || '%')
         AND (:bank IS NULL OR bankName = :bank)
         AND (:category IS NULL OR category = :category)
-        ORDER BY date DESC, id DESC
+        ORDER BY date DESC, smsDate DESC, id DESC
     """)
     suspend fun getFiltered(
         startDate: Long,

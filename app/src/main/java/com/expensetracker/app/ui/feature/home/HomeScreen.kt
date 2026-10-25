@@ -328,6 +328,10 @@ fun HomeScreen(
                     viewModel.setAlias(txn.id, txn.title, alias)
                     selectedTransaction = null
                 },
+                onSetCustomTitle = { title ->
+                    viewModel.setCustomTitle(txn.id, title)
+                    selectedTransaction = null
+                },
                 onSetNote = { note ->
                     viewModel.setNote(txn.id, note)
                     selectedTransaction = null
@@ -1047,7 +1051,7 @@ private fun TransactionItem(transaction: Transaction, currency: Currency, onClic
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = transaction.alias ?: transaction.title,
+                    text = transaction.displayTitle,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,

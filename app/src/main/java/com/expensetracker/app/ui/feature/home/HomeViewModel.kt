@@ -213,6 +213,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun setCustomTitle(transactionId: Long, customTitle: String?) {
+        viewModelScope.launch {
+            transactionDao.setCustomTitle(transactionId, customTitle?.trim()?.ifBlank { null })
+        }
+    }
+
     fun setNote(transactionId: Long, note: String?) {
         viewModelScope.launch {
             transactionDao.setNote(transactionId, note?.trim()?.ifBlank { null })
@@ -254,7 +260,7 @@ class HomeViewModel @Inject constructor(
                 ReminderEntity(
                     id = existing?.id ?: 0,
                     transactionId = transaction.id,
-                    title = transaction.alias ?: transaction.title,
+                    title = transaction.displayTitle,
                     amount = transaction.amount,
                     isIncome = transaction.isIncome,
                     paymentDayOfMonth = transaction.date.dayOfMonth,
@@ -272,7 +278,7 @@ class HomeViewModel @Inject constructor(
             ) ?: ReminderEntity(
                 id = id,
                 transactionId = transaction.id,
-                title = transaction.alias ?: transaction.title,
+                title = transaction.displayTitle,
                 amount = transaction.amount,
                 isIncome = transaction.isIncome,
                 paymentDayOfMonth = transaction.date.dayOfMonth,

@@ -142,6 +142,13 @@ class TransactionListViewModel @Inject constructor(
         }
     }
 
+    fun setCustomTitle(transactionId: Long, customTitle: String?) {
+        viewModelScope.launch {
+            transactionDao.setCustomTitle(transactionId, customTitle?.trim()?.ifBlank { null })
+            loadFiltered()
+        }
+    }
+
     fun setNote(transactionId: Long, note: String?) {
         viewModelScope.launch {
             transactionDao.setNote(transactionId, note?.trim()?.ifBlank { null })

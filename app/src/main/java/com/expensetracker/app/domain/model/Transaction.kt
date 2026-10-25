@@ -41,6 +41,10 @@ data class Transaction(
     val smsDate: Long? = null,
     val isExcluded: Boolean = false,
     val alias: String? = null,
+    val customTitle: String? = null,
     val categoryExempt: Boolean = false,
     val noteIsManual: Boolean = false,
-)
+) {
+    /** Per-transaction name, then the title-wide alias, then the parsed title. */
+    val displayTitle: String get() = customTitle ?: alias ?: title
+}

@@ -35,15 +35,179 @@ object BankSmsParser {
 
     private const val TAG = "BankSmsParser"
 
-    private val transactionAmountPattern = Pattern.compile(
-        "(?:Rs\\s*\\.?|INR\\s*|₹|USD\\s*\\.?)\\s*([0-9]{1,3}(?:,[0-9]{2,3})+(?:\\.[0-9]{1,2})?|[0-9]+(?:\\.[0-9]{1,2})?)",
-        Pattern.CASE_INSENSITIVE,
+    private const val MAX_TRANSACTION_AMOUNT = 50_000_000.0
+
+    private const val AMOUNT_GROUP =
+        """([0-9]{1,3}(?:,[0-9]{2,3})+(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)"""
+    private const val CURRENCY = """(?:Rs\s*\.?|INR\s*|₹|USD\s*\.?)"""
+    private const val NOT_BALANCE =
+        """(?:(?!\b(?:balance|bal|avl|avbl|available|outstanding)\b).)"""
+    private const val REGEX_FLAGS = Pattern.CASE_INSENSITIVE or Pattern.DOTALL
+
+    private enum class NonTransactionIntent(val label: String) {
+        OTP("OTP/verification message"),
+        DECLINED("declined or unconfirmed transaction"),
+        FUTURE("future or requested payment"),
+        DUPLICATE("duplicate transfer confirmation"),
+        PROMOTION("promotional message"),
+        SERVICE("bank service notice"),
+    }
+
+    private data class ExclusionRule(
+        val intent: NonTransactionIntent,
+        val pattern: Pattern,
     )
 
-    private val balancePatterns = listOf(
-        Pattern.compile(
-            "(?:available|avl|avbl|avbl\\.?|bal|balance|total\\s*bal|outstanding)(?:\\s*(?:balance|bal|amt|amount)?)(?:\\s*[:\\-]?\\s*)(?:Rs\\s*\\.?|INR\\s*|₹|USD\\s*\\.?)?\\s*([0-9]{1,3}(?:,[0-9]{2,3})*(?:\\.[0-9]{1,2})?|[0-9]+(?:\\.[0-9]{1,2})?)",
-            Pattern.CASE_INSENSITIVE,
+    private data class TransactionPattern(
+        val type: TransactionType,
+        val pattern: Pattern,
+        val reason: String,
+    )
+
+    private data class TransactionEvidence(
+        val type: TransactionType,
+        val amount: Double,
+        val position: Int,
+        val reason: String,
+    )
+
+    /**
+     * A message is a transaction only when a completed debit/credit verb is tied
+     * to an amount in the same clause. This is deliberately positive evidence:
+     * notices such as "Payee added ... Send up to Rs 2,00,000" must not become
+     * transactions just because they contain "added" and an amount.
+     */
+    private val transactionPatterns = listOf(
+        // "debited for Rs.240.00", "spent Rs.1900.3", "withdrawn Rs.500"
+        TransactionPattern(
+            TransactionType.DEBIT,
+            Pattern.compile(
+                """\b(?:debited|spent|withdrawn|deducted)\b$NOT_BALANCE{0,60}?$CURRENCY\s*$AMOUNT_GROUP""",
+                REGEX_FLAGS,
+            ),
+            "debit verb followed by amount",
+        ),
+        // "Rs.100.00 debited from ...", "Rs.500 has been debited"
+        TransactionPattern(
+            TransactionType.DEBIT,
+            Pattern.compile(
+                """$CURRENCY\s*$AMOUNT_GROUP\s+(?:(?:has|have)\s+been\s+|is\s+|was\s+)?(?:\w+\s+){0,1}?(?:debited|spent|withdrawn|deducted)\b""",
+                REGEX_FLAGS,
+            ),
+            "amount followed by debit verb",
+        ),
+        // HDFC's "Sent Rs.600.00 From HDFC Bank A/C ..."
+        TransactionPattern(
+            TransactionType.DEBIT,
+            Pattern.compile(
+                """\bsent\s+$CURRENCY\s*$AMOUNT_GROUP""",
+                REGEX_FLAGS,
+            ),
+            "sent amount",
+        ),
+        // "paid Rs.500", "paid to merchant Rs.500"
+        TransactionPattern(
+            TransactionType.DEBIT,
+            Pattern.compile(
+                """\bpaid\b$NOT_BALANCE{0,40}?$CURRENCY\s*$AMOUNT_GROUP""",
+                REGEX_FLAGS,
+            ),
+            "paid followed by amount",
+        ),
+        // "Rs.500 paid"
+        TransactionPattern(
+            TransactionType.DEBIT,
+            Pattern.compile(
+                """$CURRENCY\s*$AMOUNT_GROUP\s+(?:(?:has|have)\s+been\s+|is\s+|was\s+)?(?:\w+\s+){0,1}?paid\b""",
+                REGEX_FLAGS,
+            ),
+            "amount followed by paid",
+        ),
+        // Executed mandates carry the amount in a "Txn Amt" field, not next to a verb.
+        TransactionPattern(
+            TransactionType.DEBIT,
+            Pattern.compile(
+                """\b(?:AUTOPAY|E[- ]MANDATE)\b[^.]*\b(?:SUCCESS|EXECUTED)\b[\s\S]*?\b(?:TXN\s*AMT|AMOUNT)\s*:?\s*$CURRENCY\s*$AMOUNT_GROUP""",
+                REGEX_FLAGS,
+            ),
+            "executed autopay/mandate amount",
+        ),
+        // "credited:Rs.83,200.00", "credited by Rs.208.66", "deposited Rs.500"
+        TransactionPattern(
+            TransactionType.CREDIT,
+            Pattern.compile(
+                """\b(?:credited|deposited|received|refunded)\b$NOT_BALANCE{0,60}?$CURRENCY\s*$AMOUNT_GROUP""",
+                REGEX_FLAGS,
+            ),
+            "credit verb followed by amount",
+        ),
+        // "Rs.100.00 credited to ...", "Rs.5,000 received"
+        TransactionPattern(
+            TransactionType.CREDIT,
+            Pattern.compile(
+                """$CURRENCY\s*$AMOUNT_GROUP\s+(?:(?:has|have)\s+been\s+|is\s+|was\s+)?(?:\w+\s+){0,1}?(?:credited|deposited|received|refunded)\b""",
+                REGEX_FLAGS,
+            ),
+            "amount followed by credit verb",
+        ),
+        // "credit of Rs.500", "refund of Rs.500"
+        TransactionPattern(
+            TransactionType.CREDIT,
+            Pattern.compile(
+                """\b(?:credit|refund)\s+(?:of\s+)?$CURRENCY\s*$AMOUNT_GROUP""",
+                REGEX_FLAGS,
+            ),
+            "credit/refund of amount",
+        ),
+    )
+
+    /**
+     * Messages that resemble transactions but are notices, requests, or offers.
+     * Checked before [transactionPatterns] so phrases like "will be debited"
+     * cannot be mistaken for completed payments.
+     */
+    private val exclusionRules = listOf(
+        ExclusionRule(
+            NonTransactionIntent.OTP,
+            Pattern.compile(
+                """\b(?:OTP|ONE[- ]TIME PASSWORD|VERIFICATION CODE|LOGIN CODE|DO NOT SHARE)\b""",
+                REGEX_FLAGS,
+            ),
+        ),
+        ExclusionRule(
+            NonTransactionIntent.DECLINED,
+            Pattern.compile(
+                """\b(?:DECLINED|UNABLE\s+TO\s+CONFIRM)\b""",
+                REGEX_FLAGS,
+            ),
+        ),
+        ExclusionRule(
+            NonTransactionIntent.FUTURE,
+            Pattern.compile(
+                """\b(?:WILL|WOULD|SHALL)\s+BE\s+(?:DEBITED|CREDITED)\b|\bCAN\s+BE\s+CREDITED\b|\bAPPROVAL\s+UP\s+TO\b|\b(?:REQUESTED|COLLECT\s+REQUEST)\b""",
+                REGEX_FLAGS,
+            ),
+        ),
+        ExclusionRule(
+            NonTransactionIntent.DUPLICATE,
+            Pattern.compile(
+                """\bcredited\s+to\s+(?:the\s+)?beneficiary(?:\s+account)?\b""",
+                REGEX_FLAGS,
+            ),
+        ),
+        ExclusionRule(
+            NonTransactionIntent.PROMOTION,
+            Pattern.compile(
+                """\b(?:CASHBACK\s+OFFER|SHOP\s+NOW|BESTSELLER|SALE\s+IS\s+LIVE|APPLY\s+NOW|CLAIM\s+NOW|LIFETIME\s+FREE|INSTANT\s+LIMIT|LOAN\s+OFFER|CASH\s+LOAN|PRE-APPROVED|ELIGIBLE\s+FOR|CREDIT\s+CARD\s+APPLICATION)\b""",
+                REGEX_FLAGS,
+            ),
+        ),
+        ExclusionRule(
+            NonTransactionIntent.SERVICE,
+            Pattern.compile(
+                """\b(?:FOREX\s+MARKUP|ANNUAL\s+MAINTENANCE\s+CHARGES|INSTALLATION\s+AND\s+DEMO|WILL\s+BE\s+UNAVAILABLE|REVISED\s+DYNAMIC\s+CURRENCY\s+CONVERSION)\b""",
+                REGEX_FLAGS,
+            ),
         ),
     )
 
@@ -97,6 +261,10 @@ object BankSmsParser {
         Pattern.CASE_INSENSITIVE,
     )
 
+    private val dateLikeDescriptionPattern = Regex(
+        """^(?:\d{1,4}[-/. ]\d{1,2}[-/. ]\d{1,4}|\d{1,2}[-/ ](?:[A-Za-z]{3,9}|\d{1,2})[-/ ]\d{2,4}|\d{1,2}:\d{2})\b""",
+    )
+
     private val bankKeywords = mapOf(
         "SBI" to "SBI",
         "HDFC" to "HDFC Bank",
@@ -127,25 +295,6 @@ object BankSmsParser {
         "AMEX" to "American Express",
     )
 
-    private val debitIndicators = listOf(
-        "debited", "debit", "spent", "withdrawn", "withdrawal", "paid", "payment",
-        "deducted", "purchase", "charged", "txn", "transaction of", "sent",
-    )
-
-    private val creditIndicators = listOf(
-        "credited", "credit", "deposited", "deposit", "received", "added",
-        "refund", "cashback",
-    )
-
-    private val skipKeywords = listOf(
-        "DECLINED", "UNABLE TO CONFIRM", "WILL BE DEBITED", "MANDATE SET",
-        "MANDATE CANCELLED", "AUTO-PAY", "ANNUAL MAINTENANCE CHARGES",
-        "INSTALLATION AND DEMO", "FOREX MARKUP", "WILL BE UNAVAILABLE",
-        "REVISED DYNAMIC CURRENCY CONVERSION", "CASH LOAN", "LOAN OFFER",
-        "PRE-APPROVED", "ELIGIBLE FOR", "CREDIT CARD APPLICATION",
-        "AUTOPAY (E-MANDATE) SUCCESS", "AUTOPAY (E‑MANDATE) SUCCESS",
-    )
-
     private val categoryKeywords = mapOf(
         Category.FOOD to listOf("swiggy", "zomato", "food", "restaurant", "dominos", "pizza", "burger"),
         Category.GROCERY to listOf("grocery", "groceries", "blinkit", "zepto", "bigbasket", "dmart", "reliance fresh", "more supermarket"),
@@ -163,19 +312,18 @@ object BankSmsParser {
         val body = message.body
         val upperBody = body.uppercase(Locale.ENGLISH)
 
-        if (isPromotionalOrOtp(upperBody) || shouldSkip(upperBody, body)) {
-            Log.d(TAG, "SKIP promo/otp/skip: ${body.take(60)}")
+        val exclusion = exclusionRules.firstOrNull { it.pattern.matcher(body).find() }
+        if (exclusion != null) {
+            Log.d(TAG, "SKIP ${exclusion.intent.label}: ${body.take(60)}")
             return null
         }
 
-        val type = detectTransactionType(upperBody) ?: run {
-            Log.d(TAG, "SKIP no type: ${body.take(80)}")
+        val evidence = extractTransactionEvidence(body) ?: run {
+            Log.d(TAG, "SKIP no completed transaction evidence: ${body.take(80)}")
             return null
         }
-        val amount = extractAmount(body, upperBody, type) ?: run {
-            Log.d(TAG, "SKIP no amount: ${body.take(80)}")
-            return null
-        }
+        val type = evidence.type
+        val amount = evidence.amount
         val bankName = extractBankName(message.address, upperBody)
         val accountLast4 = extractAccountLast4(upperBody)
         val date = extractDate(upperBody, message.date)
@@ -183,7 +331,7 @@ object BankSmsParser {
         val description = extractDescription(body, type)
         val category = classifyCategory(upperBody, type)
 
-        Log.d(TAG, "PARSED amount=$amount type=$type bank=$bankName desc='$description' category=$category raw=${body.take(100)}")
+        Log.d(TAG, "PARSED amount=$amount type=$type bank=$bankName desc='$description' category=$category via=${evidence.reason} raw=${body.take(100)}")
 
         return ParsedSmsTransaction(
             type = type,
@@ -199,141 +347,28 @@ object BankSmsParser {
         )
     }
 
-    private fun isPromotionalOrOtp(body: String): Boolean {
-        val otpKeywords = listOf("OTP", "ONE TIME PASSWORD", "VERIFICATION CODE", "LOGIN CODE", "DO NOT SHARE")
-        val promoKeywords = listOf("CASHBACK OFFER", "DISCOUNT", "SHOP NOW", "BESTSELLER", "FESTIVAL", "SALE IS LIVE", "XMAS")
-        return otpKeywords.any { body.contains(it) } || promoKeywords.any { body.contains(it) }
-    }
+    private fun extractTransactionEvidence(body: String): TransactionEvidence? {
+        var best: TransactionEvidence? = null
+        for (rule in transactionPatterns) {
+            val matcher = rule.pattern.matcher(body)
+            if (!matcher.find()) continue
 
-    private fun shouldSkip(upperBody: String, body: String): Boolean {
-        for (kw in skipKeywords) {
-            if (upperBody.contains(kw)) return true
-        }
-        if (upperBody.contains("MANDATE") &&
-            !upperBody.contains("EXECUTED")
-        ) {
-            return true
-        }
-        if (Regex("\\bLOAN\\b.*\\bOFFER\\b").containsMatchIn(upperBody)) return true
-        if (Regex("\\bCAN\\s+BE\\s+CREDITED\\b").containsMatchIn(upperBody)) return true
-        if (upperBody.contains("DAILY LIMIT") && upperBody.contains("INCREASED")) return true
-        if (upperBody.contains("REQUESTED") && upperBody.contains("WILL BE DEBITED")) return true
-        if (upperBody.contains("APPROVAL UP TO")) return true
-        if (upperBody.contains("COMPLETE KYC")) return true
-        if (upperBody.contains("CASHBACK ON YOUR")) return true
-        if (upperBody.contains("HTTP://") || upperBody.contains("HTTPS://")) {
-            if (upperBody.contains("CASHBACK") || upperBody.contains("OFFER") || upperBody.contains("APPROVAL")) return true
-        }
-        return false
-    }
+            val amount = matcher.group(1)
+                ?.replace(",", "")
+                ?.toDoubleOrNull()
+                ?: continue
+            if (amount <= 0.0 || amount >= MAX_TRANSACTION_AMOUNT) continue
 
-    private fun detectTransactionType(body: String): TransactionType? {
-        val upperBody = body.uppercase(Locale.ENGLISH)
-
-        val debitKeywords = debitIndicators.map { it.uppercase(Locale.ENGLISH) }
-        val creditKeywords = creditIndicators.map { it.uppercase(Locale.ENGLISH) }
-
-        val debitPositions = debitKeywords.mapNotNull { kw ->
-            val idx = upperBody.indexOf(kw)
-            if (idx >= 0) idx to kw else null
-        }
-        val creditPositions = creditKeywords.mapNotNull { kw ->
-            val idx = upperBody.indexOf(kw)
-            if (idx >= 0) idx to kw else null
-        }
-
-        if (debitPositions.isEmpty() && creditPositions.isEmpty()) return null
-        if (debitPositions.isNotEmpty() && creditPositions.isEmpty()) return TransactionType.DEBIT
-        if (creditPositions.isNotEmpty() && debitPositions.isEmpty()) return TransactionType.CREDIT
-
-        // Both exist — use strong verbs and position to decide.
-        // "debited"/"credited"/"spent"/"deposited" are primary verbs.
-        // Bare "credit"/"debit" near the payee are weaker indicators.
-        val strongDebitWords = setOf("DEBITED", "SPENT", "PAID", "WITHDRAWN", "DEDUCTED", "SENT")
-        val strongCreditWords = setOf("CREDITED", "DEPOSITED", "RECEIVED")
-
-        val debitStrong = debitPositions.any { it.second in strongDebitWords }
-        val creditStrong = creditPositions.any { it.second in strongCreditWords }
-
-        return when {
-            debitStrong && !creditStrong -> TransactionType.DEBIT
-            creditStrong && !debitStrong -> TransactionType.CREDIT
-            else -> {
-                // Fall back to whichever strong/primary verb appears first
-                val firstDebit = debitPositions.filter { it.second in strongDebitWords }.minByOrNull { it.first }
-                val firstCredit = creditPositions.filter { it.second in strongCreditWords }.minByOrNull { it.first }
-
-                when {
-                    firstDebit != null && firstCredit == null -> TransactionType.DEBIT
-                    firstCredit != null && firstDebit == null -> TransactionType.CREDIT
-                    firstDebit != null && firstCredit != null -> {
-                        if (firstDebit.first < firstCredit.first) TransactionType.DEBIT else TransactionType.CREDIT
-                    }
-                    else -> {
-                        // No strong verbs; pick the earliest keyword
-                        val firstDebitAny = debitPositions.minByOrNull { it.first }
-                        val firstCreditAny = creditPositions.minByOrNull { it.first }
-                        if (firstDebitAny != null && firstCreditAny != null) {
-                            if (firstDebitAny.first < firstCreditAny.first) TransactionType.DEBIT else TransactionType.CREDIT
-                        } else {
-                            TransactionType.DEBIT
-                        }
-                    }
-                }
+            if (best == null || matcher.start() < best.position) {
+                best = TransactionEvidence(
+                    type = rule.type,
+                    amount = amount,
+                    position = matcher.start(),
+                    reason = rule.reason,
+                )
             }
         }
-    }
-
-    private fun extractAmount(body: String, upperBody: String, type: TransactionType): Double? {
-        // Step 1: Collect all Rs./INR/₹ prefixed amounts with their positions
-        val allAmounts = mutableListOf<Pair<Int, Double>>()
-        val txMatcher = transactionAmountPattern.matcher(body)
-        while (txMatcher.find()) {
-            val raw = txMatcher.group(1)?.replace(",", "") ?: continue
-            raw.toDoubleOrNull()?.let { value ->
-                if (value > 0 && value < 50_000_000) {
-                    allAmounts.add(txMatcher.start() to value)
-                }
-            }
-        }
-
-        if (allAmounts.isEmpty()) return null
-
-        // Step 2: Collect balance section positions to exclude them
-        val balanceRanges = mutableListOf<IntRange>()
-        for (bPattern in balancePatterns) {
-            val bMatcher = bPattern.matcher(upperBody)
-            while (bMatcher.find()) {
-                balanceRanges.add(bMatcher.start()..bMatcher.end())
-            }
-        }
-
-        // Step 3: Filter out amounts that appear inside balance sections
-        val transactionAmounts = allAmounts.filter { (pos, _) ->
-            balanceRanges.none { range -> pos in range }
-        }
-
-        if (transactionAmounts.isEmpty()) return null
-
-        // Step 4: Find the keyword position for the transaction type
-        val keywords = if (type == TransactionType.DEBIT) debitIndicators else creditIndicators
-        val keywordPos = keywords.mapNotNull { kw ->
-            val idx = upperBody.indexOf(kw.uppercase(Locale.ENGLISH))
-            if (idx >= 0) idx else null
-        }.minOrNull()
-
-        // Step 5: Pick the amount closest to (and before) the keyword
-        // In Indian SMS: "Rs.500 debited from..." — amount comes BEFORE the keyword
-        val result = if (keywordPos != null) {
-            val beforeKeyword = transactionAmounts.filter { it.first < keywordPos }
-            val afterKeyword = transactionAmounts.filter { it.first >= keywordPos }
-            beforeKeyword.lastOrNull() ?: afterKeyword.firstOrNull()
-        } else {
-            // No keyword found — first Rs. amount is the transaction (balance comes later)
-            transactionAmounts.firstOrNull()
-        }
-
-        return result?.second
+        return best
     }
 
     private fun extractBankName(address: String, body: String): String {
@@ -414,7 +449,22 @@ object BankSmsParser {
             }
         }
 
-        // Pattern 0b: "For X" in AutoPay / mandate executed messages
+        // Pattern 0b: Card UPI narration — "for UPI-<reference>-<merchant>"
+        // ICICI credit-card SMS put the merchant after the UPI reference.
+        val cardUpiMerchantPattern = Pattern.compile(
+            "\\bUPI-\\d{6,}-([A-Za-z0-9][A-Za-z0-9&.\\s_*#'-]{1,40}?)(?=\\.|,|;|\\s+to\\s+dispute\\b|$)",
+            Pattern.CASE_INSENSITIVE,
+        )
+        cardUpiMerchantPattern.matcher(body).let { matcher ->
+            if (matcher.find()) {
+                matcher.group(1)?.trim()?.let {
+                    val cleaned = cleanName(it)
+                    if (isValidDescription(cleaned)) return cleaned
+                }
+            }
+        }
+
+        // Pattern 0c: "For X" in AutoPay / mandate executed messages
         val forPattern = Pattern.compile(
             "\\bfor\\s+([A-Za-z0-9&\\s._\\-]{2,35}?)(?:\\s+(?:starting|mandate|id|txn|dt|via|on\\s+\\d|from|$))",
             Pattern.CASE_INSENSITIVE,
@@ -430,7 +480,7 @@ object BankSmsParser {
             }
         }
 
-        // Pattern 0c: "towards X"
+        // Pattern 0d: "towards X"
         val towardsPattern = Pattern.compile(
             "\\btowards\\s+([A-Za-z0-9&\\s._\\-]{2,35}?)(?:\\.|,|;|\\s+(?:from|on|ref|upi|for|$))",
             Pattern.CASE_INSENSITIVE,
@@ -444,7 +494,7 @@ object BankSmsParser {
             }
         }
 
-        // Pattern 0d: "Your Swiggy Order #..." / "your Swiggy Money" etc.
+        // Pattern 0e: "Your Swiggy Order #..." / "your Swiggy Money" etc.
         val merchantOrderPattern = Pattern.compile(
             "your\\s+([A-Za-z0-9&\\s]{2,25}?)\\s+(?:order|money|wallet)\\b",
             Pattern.CASE_INSENSITIVE,
@@ -504,7 +554,7 @@ object BankSmsParser {
 
         // Pattern 3: "at/on MERCHANT NAME" for card transactions
         val atPattern = Pattern.compile(
-            "(?:\\bat\\b|\\bon\\b)\\s+([A-Za-z0-9&\\s]{2,35}?)(?:\\.|,|;|\\s+(?:for|using|with|on\\s+\\d|Rs|UPI|Ref|available|avl|bal))",
+            "(?:\\bat\\b|\\bon\\b)\\s+([A-Za-z0-9&*#._'/\\-\\s]{2,35}?)(?:\\.|,|;|\\s+(?:for|using|with|on\\s+\\d|Rs|UPI|Ref|available|avl|bal))",
             Pattern.CASE_INSENSITIVE,
         )
         atPattern.matcher(lowerBody).let { matcher ->
@@ -660,6 +710,7 @@ object BankSmsParser {
 
     private fun isValidDescription(name: String): Boolean {
         if (name.length < 2) return false
+        if (dateLikeDescriptionPattern.containsMatchIn(name)) return false
         if (name.replace(" ", "").replace(".", "").all { it.isDigit() }) return false
         val generic = setOf("Credit", "Debit", "Upi", "Ref", "Bank", "A C", "Ac", "Card", "Atm", "Self", "Account", "Customer", "Our Website", "Rs", "Inr", "Ca")
         return !generic.any { name.equals(it, ignoreCase = true) || name.startsWith(it, ignoreCase = true) }
@@ -667,8 +718,11 @@ object BankSmsParser {
 
     private fun cleanName(raw: String): String {
         return raw
+            .replace(Regex("['’]"), "")
+            .replace(Regex("[*#_/|]+"), " ")
+            .replace(Regex("[^A-Za-z0-9&.\\s-]"), "")
+            .replace('-', ' ')
             .replace(Regex("\\s+"), " ")
-            .replace(Regex("[^A-Za-z0-9&\\s.]"), "")
             .trim()
             .split(" ")
             .filter { it.isNotBlank() }

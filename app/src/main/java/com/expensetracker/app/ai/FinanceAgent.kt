@@ -309,7 +309,7 @@ class FinanceAgent(context: Context) {
 
         val txList = transactions.joinToString(",") { tx ->
             val note = tx.note?.let { "\"${escape(it)}\"" } ?: "null"
-            """{"id":${tx.id},"title":"${escape(tx.alias ?: tx.title)}","amount":${tx.amount},"type":"${if (tx.isIncome) "INCOME" else "EXPENSE"}","category":"${tx.category.displayName}","date":"${tx.date}","note":$note}"""
+            """{"id":${tx.id},"title":"${escape(tx.displayTitle)}","amount":${tx.amount},"type":"${if (tx.isIncome) "INCOME" else "EXPENSE"}","category":"${tx.category.displayName}","date":"${tx.date}","note":$note}"""
         }
         return """{"transactions":[$txList],"count":${transactions.size}}"""
     }

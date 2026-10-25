@@ -23,6 +23,7 @@ data class TransactionEntity(
     val smsDate: Long? = null,
     val isExcluded: Boolean = false,
     val alias: String? = null,
+    val customTitle: String? = null,
     val categoryExempt: Boolean = false,
     val noteIsManual: Boolean = false,
 )
@@ -41,6 +42,7 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     smsDate = smsDate,
     isExcluded = isExcluded,
     alias = alias,
+    customTitle = customTitle,
     categoryExempt = categoryExempt,
     noteIsManual = noteIsManual,
 )
@@ -59,6 +61,7 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     smsDate = smsDate,
     isExcluded = isExcluded,
     alias = alias,
+    customTitle = customTitle,
     categoryExempt = categoryExempt,
     noteIsManual = noteIsManual,
 )
