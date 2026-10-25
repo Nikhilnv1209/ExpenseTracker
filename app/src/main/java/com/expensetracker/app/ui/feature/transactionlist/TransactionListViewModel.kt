@@ -13,9 +13,11 @@ import com.expensetracker.app.ui.feature.home.FilterPeriod
 import com.expensetracker.app.ui.feature.home.TransactionFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -184,5 +186,9 @@ class TransactionListViewModel @Inject constructor(
 
     suspend fun getCategoryRule(title: String): Category? {
         return categoryRuleDao.findByTitle(title)?.category?.let { Category.fromDisplayName(it) }
+    }
+
+    fun observeTransaction(transactionId: Long): Flow<Transaction?> {
+        return transactionDao.observeById(transactionId).map { it?.toDomain() }
     }
 }

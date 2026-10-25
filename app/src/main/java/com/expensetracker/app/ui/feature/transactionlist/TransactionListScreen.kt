@@ -31,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +56,7 @@ import com.expensetracker.app.ui.feature.home.categoryColor
 import com.expensetracker.app.ui.feature.home.categoryIcon
 import com.expensetracker.app.ui.feature.home.currencies
 import com.expensetracker.app.ui.feature.home.formatAmount
+import kotlinx.coroutines.flow.collect
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -70,14 +72,28 @@ fun TransactionListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val currency = currencies[1]
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
+    var selectedTransactionId by remember { mutableStateOf<Long?>(null) }
     var showFilter by remember { mutableStateOf(false) }
     val defaultFilter = remember { TransactionFilter(period = FilterPeriod.ALL_TIME) }
     val isFilterActive = uiState.filter != defaultFilter
+
+    LaunchedEffect(selectedTransactionId) {
+        val id = selectedTransactionId
+        if (id == null) {
+            selectedTransaction = null
+            return@LaunchedEffect
+        }
+        viewModel.observeTransaction(id).collect { latest ->
+            selectedTransaction = latest
+            if (latest == null) selectedTransactionId = null
+        }
+    }
 
     val isSheetOpen = showFilter || selectedTransaction != null
     BackHandler(enabled = isSheetOpen) {
         showFilter = false
         selectedTransaction = null
+        selectedTransactionId = null
     }
 
     LiquidGlassLayout(
@@ -85,6 +101,7 @@ fun TransactionListScreen(
         onDismiss = {
             showFilter = false
             selectedTransaction = null
+            selectedTransactionId = null
         },
         mainContent = {
             Column(
@@ -220,7 +237,10 @@ fun TransactionListScreen(
                                     )
                                 }
                                 lastDate = transaction.date
-                                TransactionListItem(transaction, currency, onClick = { selectedTransaction = transaction })
+                                TransactionListItem(transaction, currency, onClick = {
+                                    selectedTransaction = transaction
+                                    selectedTransactionId = transaction.id
+                                })
                             }
                         }
 
@@ -259,31 +279,26 @@ fun TransactionListScreen(
                 categoryRule = categoryRule,
                 onToggleExcluded = { excluded ->
                     viewModel.toggleExcluded(txn.id, excluded)
-                    selectedTransaction = null
                 },
                 onSetAlias = { alias ->
                     viewModel.setAlias(txn.id, txn.title, alias)
-                    selectedTransaction = null
                 },
                 onSetCustomTitle = { title ->
                     viewModel.setCustomTitle(txn.id, title)
-                    selectedTransaction = null
                 },
                 onSetNote = { note ->
                     viewModel.setNote(txn.id, note)
-                    selectedTransaction = null
                 },
                 onSetCategory = { category, applyToAll ->
                     viewModel.setCategory(txn.id, txn.title, category, applyToAll)
-                    selectedTransaction = null
                 },
                 onSetCategoryExempt = { exempt ->
                     viewModel.setCategoryExempt(txn.id, txn.title, exempt)
-                    selectedTransaction = null
                 },
                 onDelete = {
                     viewModel.deleteTransaction(txn.id)
                     selectedTransaction = null
+                    selectedTransactionId = null
                 },
             )
         }

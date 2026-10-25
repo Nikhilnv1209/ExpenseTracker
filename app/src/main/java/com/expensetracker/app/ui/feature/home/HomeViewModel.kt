@@ -18,9 +18,11 @@ import com.expensetracker.app.sms.SmsImportResult
 import com.expensetracker.app.sms.SmsImportUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -104,6 +106,11 @@ class HomeViewModel @Inject constructor(
             monthEnd.toEpochDay(),
         )
 
+        val bankTotals = transactionDao.getBankTotals(
+            monthStart.toEpochDay(),
+            monthEnd.toEpochDay(),
+        )
+
         val chartStart = today.minusMonths(6).with(TemporalAdjusters.firstDayOfMonth())
         val chartEnd = today.plusMonths(6).with(TemporalAdjusters.lastDayOfMonth())
 
@@ -138,6 +145,7 @@ class HomeViewModel @Inject constructor(
                 totalBalance = incomeTotal - expenseTotal,
                 dailyExpenses = dailyExpenses,
                 categoryTotals = categoryTotals,
+                bankTotals = bankTotals,
             )
         }
     }
@@ -255,6 +263,10 @@ class HomeViewModel @Inject constructor(
 
     suspend fun getTransaction(transactionId: Long): Transaction? {
         return transactionDao.getById(transactionId)?.toDomain()
+    }
+
+    fun observeTransaction(transactionId: Long): Flow<Transaction?> {
+        return transactionDao.observeById(transactionId).map { it?.toDomain() }
     }
 
     fun setReminder(transaction: Transaction, daysBefore: Int, customDate: Long? = null, hour: Int = 9, minute: Int = 0) {
@@ -426,6 +438,7 @@ data class HomeUiState(
     val totalBalance: Double = 0.0,
     val dailyExpenses: List<com.expensetracker.app.ui.components.DailyExpense> = emptyList(),
     val categoryTotals: List<com.expensetracker.app.data.local.TransactionDao.CategoryTotal> = emptyList(),
+    val bankTotals: List<com.expensetracker.app.data.local.TransactionDao.BankTotal> = emptyList(),
     val importResult: SmsImportResult? = null,
     val balanceMode: Int = 0,
     val filter: TransactionFilter = TransactionFilter(),

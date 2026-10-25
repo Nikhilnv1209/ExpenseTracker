@@ -79,6 +79,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -110,6 +111,8 @@ import com.expensetracker.app.ui.components.LiquidGlassLayout
 import com.expensetracker.app.ui.components.TransactionDetailSheet
 import com.expensetracker.app.ui.theme.Violet400
 import com.expensetracker.app.ui.theme.Violet700
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -165,6 +168,8 @@ fun HomeScreen(
 
     var showFilter by remember { mutableStateOf(false) }
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
+    var selectedTransactionId by remember { mutableStateOf<Long?>(null) }
+    var reminderVersion by remember { mutableStateOf(0) }
     var showAddTransaction by remember { mutableStateOf(false) }
     var addTransactionIsIncome by remember { mutableStateOf(false) }
     var addTransactionContent by remember { mutableStateOf(false) }
@@ -180,14 +185,28 @@ fun HomeScreen(
         val id = pendingTransactionId ?: return@LaunchedEffect
         viewModel.getTransaction(id)?.let { transaction ->
             selectedTransaction = transaction
+            selectedTransactionId = transaction.id
         }
         onTransactionHandled()
+    }
+
+    LaunchedEffect(selectedTransactionId) {
+        val id = selectedTransactionId
+        if (id == null) {
+            selectedTransaction = null
+            return@LaunchedEffect
+        }
+        viewModel.observeTransaction(id).collect { latest ->
+            selectedTransaction = latest
+            if (latest == null) selectedTransactionId = null
+        }
     }
 
     val isSheetOpen = selectedTransaction != null || showFilter || showAddTransaction
     BackHandler(enabled = isSheetOpen) {
         showFilter = false
         selectedTransaction = null
+        selectedTransactionId = null
         showAddTransaction = false
     }
 
@@ -196,6 +215,7 @@ fun HomeScreen(
         onDismiss = {
             showFilter = false
             selectedTransaction = null
+            selectedTransactionId = null
             showAddTransaction = false
         },
         mainContent = {
@@ -237,7 +257,10 @@ fun HomeScreen(
                 }
 
                 items(uiState.transactions) { transaction ->
-                    TransactionItem(transaction, selectedCurrency, onClick = { selectedTransaction = transaction })
+                    TransactionItem(transaction, selectedCurrency, onClick = {
+                        selectedTransaction = transaction
+                        selectedTransactionId = transaction.id
+                    })
                 }
 
                 if (uiState.importResult != null) {
@@ -305,6 +328,7 @@ fun HomeScreen(
             val reminder by androidx.compose.runtime.produceState(
                 initialValue = null as com.expensetracker.app.data.local.ReminderEntity?,
                 key1 = txn.id,
+                key2 = reminderVersion,
             ) {
                 value = viewModel.getReminder(txn.id)
             }
@@ -315,39 +339,34 @@ fun HomeScreen(
                 reminder = reminder,
                 onToggleExcluded = { excluded ->
                     viewModel.toggleExcluded(txn.id, excluded)
-                    selectedTransaction = null
                 },
                 onSetAlias = { alias ->
                     viewModel.setAlias(txn.id, txn.title, alias)
-                    selectedTransaction = null
                 },
                 onSetCustomTitle = { title ->
                     viewModel.setCustomTitle(txn.id, title)
-                    selectedTransaction = null
                 },
                 onSetNote = { note ->
                     viewModel.setNote(txn.id, note)
-                    selectedTransaction = null
                 },
                 onSetCategory = { category, applyToAll ->
                     viewModel.setCategory(txn.id, txn.title, category, applyToAll)
-                    selectedTransaction = null
                 },
                 onSetCategoryExempt = { exempt ->
                     viewModel.setCategoryExempt(txn.id, txn.title, exempt)
-                    selectedTransaction = null
                 },
                 onSetReminder = { daysBefore, customDate, hour, minute ->
                     viewModel.setReminder(txn, daysBefore, customDate, hour, minute)
-                    selectedTransaction = null
+                    reminderVersion++
                 },
                 onRemoveReminder = {
                     viewModel.removeReminder(txn.id)
-                    selectedTransaction = null
+                    reminderVersion++
                 },
                 onDelete = {
                     viewModel.deleteTransaction(txn.id)
                     selectedTransaction = null
+                    selectedTransactionId = null
                 },
             )
         }
@@ -676,7 +695,9 @@ private fun ImportResultCard(
 
 @Composable
 private fun GraphPager(uiState: HomeUiState) {
-    val pagerState = rememberPagerState(pageCount = { 2 })
+    val pagerState = rememberPagerState(pageCount = { 3 })
+    val scope = rememberCoroutineScope()
+    val labels = listOf("Trend", "Category", "Banks")
 
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
@@ -697,6 +718,10 @@ private fun GraphPager(uiState: HomeUiState) {
                             categoryTotals = uiState.categoryTotals,
                             totalExpense = uiState.totalExpense,
                         )
+                        2 -> BankBreakdown(
+                            bankTotals = uiState.bankTotals,
+                            totalExpense = uiState.totalExpense,
+                        )
                     }
                 }
             }
@@ -708,40 +733,164 @@ private fun GraphPager(uiState: HomeUiState) {
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "Trend",
-                    fontSize = 12.sp,
-                    fontWeight = if (pagerState.currentPage == 0) FontWeight.Bold else FontWeight.Normal,
-                    color = if (pagerState.currentPage == 0) Color(0xFF7C3AED) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    modifier = Modifier
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                )
-                Spacer(Modifier.width(4.dp))
-                repeat(2) { index ->
-                    Box(
+                labels.forEachIndexed { index, label ->
+                    Text(
+                        text = label,
+                        fontSize = 12.sp,
+                        fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal,
+                        color = if (pagerState.currentPage == index) {
+                            Color(0xFF7C3AED)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        },
                         modifier = Modifier
-                            .size(if (pagerState.currentPage == index) 7.dp else 5.dp)
-                            .background(
-                                color = if (pagerState.currentPage == index) Color(0xFF7C3AED) else Color.White.copy(alpha = 0.3f),
-                                shape = CircleShape,
-                            ),
-                )
-                if (index < 1) Spacer(Modifier.width(4.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                scope.launch { pagerState.animateScrollToPage(index) }
+                            }
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
+                    if (index < labels.lastIndex) {
+                        Spacer(Modifier.width(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(if (pagerState.currentPage == index) 7.dp else 5.dp)
+                                .background(
+                                    color = if (pagerState.currentPage == index) {
+                                        Color(0xFF7C3AED)
+                                    } else {
+                                        Color.White.copy(alpha = 0.3f)
+                                    },
+                                    shape = CircleShape,
+                                ),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                    }
+                }
             }
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "Category",
-                fontSize = 12.sp,
-                fontWeight = if (pagerState.currentPage == 1) FontWeight.Bold else FontWeight.Normal,
-                color = if (pagerState.currentPage == 1) Color(0xFF7C3AED) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                modifier = Modifier
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-            )
-        }
         }
     }
+}
+
+@Composable
+private fun BankBreakdown(
+    bankTotals: List<com.expensetracker.app.data.local.TransactionDao.BankTotal>,
+    totalExpense: Double,
+) {
+    if (bankTotals.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "No expenses this month",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            )
+        }
+        return
+    }
+
+    val maxTotal = bankTotals.maxOf { it.total }.coerceAtLeast(0.001)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+    ) {
+        Text(
+            text = "Spending by Bank / Card",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "₹${String.format("%.0f", totalExpense)} total",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+        )
+        Spacer(Modifier.height(14.dp))
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            bankTotals.forEachIndexed { index, item ->
+                val color = bankColor(index)
+                val percent = if (totalExpense > 0) {
+                    ((item.total / totalExpense) * 100).toInt()
+                } else {
+                    0
+                }
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = item.name,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "₹${String.format("%.0f", item.total)}",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = color,
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "$percent%",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                        )
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                shape = CircleShape,
+                            ),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth((item.total / maxTotal).toFloat().coerceIn(0f, 1f))
+                                .height(5.dp)
+                                .background(color = color, shape = CircleShape),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun bankColor(index: Int): Color {
+    val colors = listOf(
+        Color(0xFF7C3AED),
+        Color(0xFF2196F3),
+        Color(0xFFFF9800),
+        Color(0xFF4CAF50),
+        Color(0xFFE91E63),
+        Color(0xFF00BCD4),
+        Color(0xFFFF5722),
+        Color(0xFF9C27B0),
+    )
+    return colors[index % colors.size]
 }
 
 @Composable

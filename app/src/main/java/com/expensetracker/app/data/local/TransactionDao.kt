@@ -29,6 +29,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): TransactionEntity?
 
+    @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
+    fun observeById(id: Long): Flow<TransactionEntity?>
+
     @Query("SELECT * FROM transactions WHERE smsDate = :smsDate LIMIT 1")
     suspend fun findBySmsDate(smsDate: Long): TransactionEntity?
 
@@ -181,6 +184,15 @@ interface TransactionDao {
     """)
     suspend fun getCategoryTotals(startDate: Long, endDate: Long): List<CategoryTotal>
 
+    @Query("""
+        SELECT COALESCE(accountName, bankName, 'Unknown') AS name, COALESCE(SUM(amount), 0.0) AS total
+        FROM transactions
+        WHERE type = 'EXPENSE' AND isExcluded = 0 AND date >= :startDate AND date <= :endDate
+        GROUP BY COALESCE(accountName, bankName, 'Unknown')
+        ORDER BY total DESC
+    """)
+    suspend fun getBankTotals(startDate: Long, endDate: Long): List<BankTotal>
+
     data class DailyTotal(
         val date: Long,
         val total: Double,
@@ -188,6 +200,11 @@ interface TransactionDao {
 
     data class CategoryTotal(
         val category: String,
+        val total: Double,
+    )
+
+    data class BankTotal(
+        val name: String,
         val total: Double,
     )
 }
