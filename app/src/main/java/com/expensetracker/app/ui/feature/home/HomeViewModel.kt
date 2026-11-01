@@ -88,8 +88,10 @@ class HomeViewModel @Inject constructor(
         val monthStart = today.with(TemporalAdjusters.firstDayOfMonth())
         val monthEnd = today.with(TemporalAdjusters.lastDayOfMonth())
 
-        val monthTransactions = transactions.filter {
-            !it.date.isBefore(monthStart) && !it.date.isAfter(monthEnd)
+        // Dashboard totals stay month-based; only the recent list uses a rolling window.
+        val recentStart = today.minusDays(29)
+        val recentTransactions = transactions.filter {
+            !it.date.isBefore(recentStart) && !it.date.isAfter(today)
         }
 
         val incomeTotal = transactionDao.getIncomeTotal(
@@ -139,7 +141,7 @@ class HomeViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 isLoading = false,
-                transactions = monthTransactions,
+                transactions = recentTransactions,
                 totalIncome = incomeTotal,
                 totalExpense = expenseTotal,
                 totalBalance = incomeTotal - expenseTotal,
