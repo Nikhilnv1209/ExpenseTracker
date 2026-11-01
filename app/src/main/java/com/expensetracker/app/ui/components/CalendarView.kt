@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
 import java.util.Calendar
 import kotlin.math.roundToInt
 
@@ -61,6 +63,7 @@ fun CalendarView(
     dailyExpenses: List<DailyExpense>,
     modifier: Modifier = Modifier,
     graphMode: Int = 0,
+    onMonthChanged: (YearMonth) -> Unit = {},
 ) {
     var selectedDay by remember { mutableIntStateOf(-1) }
     var baseMonth by remember { mutableIntStateOf(Calendar.getInstance().get(Calendar.MONTH)) }
@@ -86,6 +89,10 @@ fun CalendarView(
         val counts = mutableMapOf<Int, Int>()
         repeat(7) { counts[c.get(Calendar.YEAR)] = (counts[c.get(Calendar.YEAR)] ?: 0) + 1; c.add(Calendar.DAY_OF_MONTH, 1) }
         counts.maxByOrNull { it.value }?.key ?: weekStart.get(Calendar.YEAR)
+    }
+
+    LaunchedEffect(displayYear, displayMonth) {
+        onMonthChanged(YearMonth.of(displayYear, displayMonth + 1))
     }
 
     Column(modifier = Modifier.padding(16.dp)) {

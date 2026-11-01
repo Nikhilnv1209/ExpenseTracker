@@ -114,6 +114,7 @@ import com.expensetracker.app.ui.theme.Violet700
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 data class Currency(
@@ -240,7 +241,7 @@ fun HomeScreen(
                     hasActiveFilter = uiState.filter != TransactionFilter(),
                 ) }
                 item { BalanceCard(selectedCurrency, uiState) { viewModel.cycleBalanceMode() } }
-                item { GraphPager(uiState) }
+                item { GraphPager(uiState, onMonthChanged = viewModel::setSelectedMonth) }
                 item { RecentTransactionsHeader(onSeeAll = onSeeAll) }
 
                 if (uiState.isLoading) {
@@ -554,12 +555,27 @@ private fun BalanceCard(currency: Currency, uiState: HomeUiState, onCycleMode: (
                 .fillMaxWidth()
                 .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 20.dp),
         ) {
-            Text(
-                text = label,
-                fontSize = 13.sp,
-                color = Color.White.copy(alpha = 0.5f),
-                letterSpacing = 0.5.sp,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = label,
+                    fontSize = 13.sp,
+                    color = Color.White.copy(alpha = 0.5f),
+                    letterSpacing = 0.5.sp,
+                )
+                Text(
+                    text = if (uiState.filter == TransactionFilter()) {
+                        uiState.selectedMonth.format(DateTimeFormatter.ofPattern("MMM yyyy"))
+                    } else {
+                        "Filtered"
+                    },
+                    fontSize = 11.sp,
+                    color = Color.White.copy(alpha = 0.4f),
+                )
+            }
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = formatAmount(amount, currency),
@@ -694,7 +710,7 @@ private fun ImportResultCard(
 }
 
 @Composable
-private fun GraphPager(uiState: HomeUiState) {
+private fun GraphPager(uiState: HomeUiState, onMonthChanged: (YearMonth) -> Unit) {
     val pagerState = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
     val labels = listOf("Trend", "Category", "Banks")
@@ -713,6 +729,7 @@ private fun GraphPager(uiState: HomeUiState) {
                         0 -> CalendarView(
                             dailyExpenses = uiState.dailyExpenses,
                             graphMode = uiState.balanceMode,
+                            onMonthChanged = onMonthChanged,
                         )
                         1 -> CategoryBreakdown(
                             categoryTotals = uiState.categoryTotals,

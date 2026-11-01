@@ -18,6 +18,7 @@ import com.expensetracker.app.sms.SmsImportResult
 import com.expensetracker.app.sms.SmsImportUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 
@@ -47,6 +49,7 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var isRefreshing = false
+    private var selectedMonthJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -85,8 +88,9 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun refreshState(transactions: List<Transaction>) {
         val today = LocalDate.now()
-        val monthStart = today.with(TemporalAdjusters.firstDayOfMonth())
-        val monthEnd = today.with(TemporalAdjusters.lastDayOfMonth())
+        val selectedMonth = _uiState.value.selectedMonth
+        val monthStart = selectedMonth.atDay(1)
+        val monthEnd = selectedMonth.atEndOfMonth()
 
         // Dashboard totals stay month-based; only the recent list uses a rolling window.
         val recentStart = today.minusDays(29)
@@ -113,8 +117,8 @@ class HomeViewModel @Inject constructor(
             monthEnd.toEpochDay(),
         )
 
-        val chartStart = today.minusMonths(6).with(TemporalAdjusters.firstDayOfMonth())
-        val chartEnd = today.plusMonths(6).with(TemporalAdjusters.lastDayOfMonth())
+        val chartStart = selectedMonth.minusMonths(6).atDay(1)
+        val chartEnd = selectedMonth.plusMonths(6).atEndOfMonth()
 
         val dailyTotals = transactionDao.getDailyExpenseTotals(
             chartStart.toEpochDay(),
@@ -368,6 +372,18 @@ class HomeViewModel @Inject constructor(
         applyFilter(filter)
     }
 
+    fun setSelectedMonth(month: YearMonth) {
+        if (month == _uiState.value.selectedMonth) return
+        _uiState.update { it.copy(selectedMonth = month) }
+        if (_uiState.value.filter != TransactionFilter()) return
+
+        selectedMonthJob?.cancel()
+        selectedMonthJob = viewModelScope.launch {
+            val transactions = transactionDao.getAllSorted().map { it.toDomain() }
+            refreshState(transactions)
+        }
+    }
+
     private fun applyFilter(filter: TransactionFilter) {
         viewModelScope.launch {
             val today = LocalDate.now()
@@ -438,6 +454,7 @@ data class HomeUiState(
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
     val totalBalance: Double = 0.0,
+    val selectedMonth: YearMonth = YearMonth.now(),
     val dailyExpenses: List<com.expensetracker.app.ui.components.DailyExpense> = emptyList(),
     val categoryTotals: List<com.expensetracker.app.data.local.TransactionDao.CategoryTotal> = emptyList(),
     val bankTotals: List<com.expensetracker.app.data.local.TransactionDao.BankTotal> = emptyList(),
