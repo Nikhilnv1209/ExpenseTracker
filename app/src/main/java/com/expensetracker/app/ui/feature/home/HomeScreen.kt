@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -220,7 +221,7 @@ fun HomeScreen(
                             top = 8.dp,
                             bottom = 128.dp,
                         ),
-                        verticalArrangement = Arrangement.spacedBy(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
                         item {
                             HomeTopBar(
@@ -247,6 +248,7 @@ fun HomeScreen(
                                 onMonthChanged = viewModel::setSelectedMonth,
                             )
                         }
+                        item { Spacer(Modifier.height(8.dp)) }
                         item { RecentHeader(onSeeAll = onSeeAll) }
 
                         if (uiState.isLoading) {
@@ -254,7 +256,7 @@ fun HomeScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(120.dp),
+                                        .height(80.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     CircularProgressIndicator(color = AppTheme.colors.gold)
@@ -959,43 +961,44 @@ private fun TransactionCard(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(vertical = 8.dp),
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(42.dp)
                 .clip(CircleShape)
-                .background(catColor.copy(alpha = 0.16f)),
+                .background(catColor.copy(alpha = 0.14f))
+                .border(1.dp, catColor.copy(alpha = 0.25f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = categoryIcon(transaction.category),
                 contentDescription = null,
                 tint = catColor,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(21.dp),
             )
         }
 
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = transaction.displayTitle,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.labelLarge,
                 color = c.textPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(3.dp))
             Text(
                 text = buildString {
                     append(transaction.date.format(rowDate))
+                    append(" · ").append(transaction.category.displayName)
                     transaction.displayAccount?.let { append(" · ").append(it) }
                 },
                 style = MaterialTheme.typography.labelSmall,
-                color = c.textFaint,
+                color = c.textMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1005,9 +1008,9 @@ private fun TransactionCard(
 
         Text(
             text = if (transaction.isIncome) "+${formatAmount(transaction.amount, currency)}"
-            else "-${formatAmount(transaction.amount, currency)}",
+            else "−${formatAmount(transaction.amount, currency)}",
             style = AppType.amount(15, FontWeight.SemiBold),
-            color = if (transaction.isIncome) c.incomeBright else c.textPrimary,
+            color = if (transaction.isIncome) c.income else c.expense,
         )
     }
 }
