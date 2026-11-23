@@ -558,12 +558,23 @@ private fun BalanceCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 4.dp, end = 4.dp, top = 14.dp, bottom = 10.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(c.card.copy(alpha = 0.55f))
+            .background(
+                androidx.compose.ui.graphics.Brush.linearGradient(
+                    listOf(
+                        c.gold.copy(alpha = 0.05f),
+                        androidx.compose.ui.graphics.Color.Transparent,
+                        c.secondary.copy(alpha = 0.03f),
+                    ),
+                )
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onCycle,
-            ),
+            )
+            .padding(horizontal = 24.dp, vertical = 22.dp),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(

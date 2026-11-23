@@ -57,7 +57,15 @@ fun AppBottomBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(c.canvas.copy(alpha = 0.98f)),
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(
+                        androidx.compose.ui.graphics.Color(0xFF0D0B0A),
+                        androidx.compose.ui.graphics.Color(0xFF15110E),
+                        androidx.compose.ui.graphics.Color(0xFF191411),
+                    )
+                )
+            ),
     ) {
         Row(
             modifier = Modifier
