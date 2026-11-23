@@ -32,6 +32,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     fun observeById(id: Long): Flow<TransactionEntity?>
 
+    @Query("SELECT COUNT(*) FROM transactions WHERE title = :title AND isExcluded = 0")
+    suspend fun countByTitle(title: String): Int
+
     @Query("SELECT * FROM transactions WHERE smsDate = :smsDate LIMIT 1")
     suspend fun findBySmsDate(smsDate: Long): TransactionEntity?
 

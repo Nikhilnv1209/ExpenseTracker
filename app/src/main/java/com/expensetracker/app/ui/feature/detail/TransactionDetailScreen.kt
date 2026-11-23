@@ -1,13 +1,6 @@
 package com.expensetracker.app.ui.feature.detail
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,36 +14,39 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.EditNote
-import androidx.compose.material.icons.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.LocalDining
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Storefront
+import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.StickyNote2
+import androidx.compose.material.icons.rounded.Store
+import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -62,10 +58,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -74,7 +73,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.expensetracker.app.data.local.ReminderEntity
 import com.expensetracker.app.domain.model.Category
 import com.expensetracker.app.domain.model.Transaction
-import com.expensetracker.app.ui.components.CategoryPanel
 import com.expensetracker.app.ui.components.ReminderPanel
 import com.expensetracker.app.ui.components.WarmBackdrop
 import com.expensetracker.app.ui.feature.home.HomeViewModel
@@ -84,14 +82,17 @@ import com.expensetracker.app.ui.feature.home.currencies
 import com.expensetracker.app.ui.feature.home.formatAmount
 import com.expensetracker.app.ui.theme.AppTheme
 import com.expensetracker.app.ui.theme.AppType
-import java.time.LocalDate
+import kotlinx.coroutines.delay
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private enum class View { DETAIL, CATEGORY, REMINDER }
+private enum class Overlay { NONE, CATEGORY, ALIAS, REMINDER }
 
 /**
- * Full page for a transaction, matching the "Transaction Detail" design:
- * fixed header, floating card hero, grouped detail rows, Close + Save pills.
+ * Transaction Detail, matching the "alias / note / rename" design:
+ * compact hero with name, note and time pills, two-line detail rows with
+ * badges, separate SMS provenance card, and Close / Save pills.
  */
 @Composable
 fun TransactionDetailScreen(
@@ -100,21 +101,19 @@ fun TransactionDetailScreen(
     currency: com.expensetracker.app.ui.feature.home.Currency = currencies[1],
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
+    val c = AppTheme.colors
     val transaction by viewModel.observeTransaction(transactionId).collectAsState(initial = null)
-    var view by remember { mutableStateOf(View.DETAIL) }
+    var overlay by remember { mutableStateOf(Overlay.NONE) }
 
-    BackHandler { if (view != View.DETAIL) view = View.DETAIL else onBack() }
+    BackHandler { if (overlay != Overlay.NONE) overlay = Overlay.NONE else onBack() }
 
-    if (transaction == null) {
+    val txn = transaction
+    if (txn == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Transaction not found", color = AppTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
+            Text("Transaction not found", color = c.textMuted, style = MaterialTheme.typography.bodyMedium)
         }
         return
     }
-    val txn = transaction!!
-
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<EditTarget?>(null) }
 
     val categoryRule by produceState(initialValue = null as Category?, key1 = txn.title) {
         value = viewModel.getCategoryRule(txn.title)
@@ -124,530 +123,795 @@ fun TransactionDetailScreen(
         key1 = txn.id,
         key2 = viewModel.hashCode(),
     ) { value = viewModel.getReminder(txn.id) }
+    val aliasCount by produceState(initialValue = 1, key1 = txn.title) {
+        value = viewModel.getAliasImpactCount(txn.title)
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         WarmBackdrop()
 
-        // Fixed header
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Fixed header
+            Row(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.03f))
+                        .border(1.dp, c.hairline, CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { if (overlay != Overlay.NONE) overlay = Overlay.NONE else onBack() },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Back",
+                        tint = c.textSecondary,
+                        modifier = Modifier.size(19.dp),
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = "Transaction Detail",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = c.textPrimary,
+                )
+                Spacer(Modifier.weight(1f))
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(c.gold.copy(alpha = 0.2f), c.secondary.copy(alpha = 0.2f)),
+                            )
+                        )
+                        .border(1.dp, c.hairline, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.Person, contentDescription = null, tint = c.gold, modifier = Modifier.size(18.dp))
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 8.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                // Main modal card
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(32.dp))
+                        .background(c.card.copy(alpha = 0.82f))
+                        .border(1.dp, c.hairline, RoundedCornerShape(32.dp))
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .size(width = 44.dp, height = 4.dp)
+                            .clip(CircleShape)
+                            .background(c.textFaint.copy(alpha = 0.4f)),
+                    )
+
+                    Hero(
+                        txn = txn,
+                        currency = currency,
+                        onSaveTitle = { viewModel.setCustomTitle(txn.id, it) },
+                        onSaveNote = { note -> viewModel.setNote(txn.id, note) },
+                    )
+
+                    DetailRows(
+                        txn = txn,
+                        categoryRule = categoryRule,
+                        reminder = reminder,
+                        aliasCount = aliasCount,
+                        onCategory = { overlay = Overlay.CATEGORY },
+                        onAlias = { overlay = Overlay.ALIAS },
+                        onReminder = { overlay = Overlay.REMINDER },
+                        onToggleExcluded = { viewModel.toggleExcluded(txn.id, it) },
+                        onToggleCategoryExempt = { viewModel.setCategoryExempt(txn.id, txn.title, it) },
+                        onDelete = {
+                            viewModel.deleteTransaction(txn.id)
+                            onBack()
+                        },
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.05f))
+                                .border(1.dp, c.hairline, CircleShape)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = onBack,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Close", style = MaterialTheme.typography.labelLarge, color = c.textPrimary)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .clip(CircleShape)
+                                .background(Brush.horizontalGradient(listOf(Color(0xFFE6C786), Color(0xFFC49F58))))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = onBack,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "Save",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color(0xFF14120E),
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+
+                // SMS provenance card
+                val rawSms = txn.rawSms
+                if (!rawSms.isNullOrBlank()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(26.dp))
+                            .background(c.card.copy(alpha = 0.82f))
+                            .border(1.dp, c.hairline, RoundedCornerShape(26.dp))
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Rounded.Sms,
+                                contentDescription = null,
+                                tint = c.gold,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = (txn.bankName ?: "SMS").uppercase(),
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 0.4.sp,
+                                ),
+                                color = c.textPrimary,
+                            )
+                            Spacer(Modifier.weight(1f))
+                            if (txn.smsDate != null) {
+                                Text(
+                                    text = formatShort(txn.smsDate!!),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = c.textSecondary,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(
+                                text = "Parsed on-device",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                color = c.income,
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(c.income.copy(alpha = 0.1f))
+                                    .border(1.dp, c.income.copy(alpha = 0.2f), CircleShape)
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                            )
+                        }
+                        Text(
+                            text = rawSms,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                lineHeight = 19.sp,
+                            ),
+                            color = c.textSecondary,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.Black.copy(alpha = 0.25f))
+                                .border(1.dp, c.hairline, RoundedCornerShape(12.dp))
+                                .padding(14.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        when (overlay) {
+            Overlay.CATEGORY -> CategoryRulesSheet(
+                merchant = txn.title,
+                currentCategory = txn.category,
+                currentRule = categoryRule,
+                currentAlias = txn.alias,
+                onDismiss = { overlay = Overlay.NONE },
+                onApply = { category, createRule, alias ->
+                    viewModel.setCategory(txn.id, txn.title, category, createRule)
+                    if (alias != null) viewModel.setAlias(txn.id, txn.title, alias)
+                    overlay = Overlay.NONE
+                },
+            )
+
+            Overlay.ALIAS -> MerchantAliasSheet(
+                merchant = txn.title,
+                currentAlias = txn.alias,
+                transactionCount = aliasCount,
+                onDismiss = { overlay = Overlay.NONE },
+                onApply = { value ->
+                    viewModel.setAlias(txn.id, txn.title, value)
+                    overlay = Overlay.NONE
+                },
+            )
+
+            Overlay.REMINDER -> ReminderPanel(
+                transaction = txn,
+                existingReminder = reminder,
+                onBack = { overlay = Overlay.NONE },
+                onConfirm = { daysBefore, customDate, hour, minute ->
+                    viewModel.setReminder(txn, daysBefore, customDate, hour, minute)
+                    overlay = Overlay.NONE
+                },
+                onRemove = {
+                    viewModel.removeReminder(txn.id)
+                    overlay = Overlay.NONE
+                },
+            )
+
+            Overlay.NONE -> Unit
+        }
+    }
+}
+
+/* ---------------------------------- hero ---------------------------------- */
+
+@Composable
+private fun Hero(
+    txn: Transaction,
+    currency: com.expensetracker.app.ui.feature.home.Currency,
+    onSaveTitle: (String?) -> Unit,
+    onSaveNote: (String?) -> Unit,
+) {
+    val c = AppTheme.colors
+    val catColor = categoryColor(txn.category)
+    val manualNote = txn.note?.takeIf { txn.noteIsManual }
+    var editingTitle by remember(txn.id) { mutableStateOf(false) }
+    var titleText by remember(txn.id, txn.customTitle) { mutableStateOf(txn.customTitle ?: "") }
+    var editingNote by remember(txn.id) { mutableStateOf(false) }
+    var noteText by remember(txn.id, manualNote) { mutableStateOf(manualNote ?: "") }
+    val titleFocus = remember { FocusRequester() }
+    val noteFocus = remember { FocusRequester() }
+
+    LaunchedEffect(editingTitle) { if (editingTitle) titleFocus.requestFocus() }
+    LaunchedEffect(editingNote) { if (editingNote) noteFocus.requestFocus() }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Canvas(modifier = Modifier.size(64.dp)) {
+                val r = size.minDimension / 2f
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(c.secondary.copy(alpha = 0.28f), Color.Transparent),
+                        center = center,
+                        radius = r,
+                    ),
+                    radius = r,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Brush.verticalGradient(listOf(Color(0xFF25221F), Color(0xFF181513))))
+                    .border(1.dp, c.gold.copy(alpha = 0.25f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = categoryIcon(txn.category),
+                    contentDescription = null,
+                    tint = catColor,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+
+        Text(
+            text = "${if (txn.isIncome) "+" else "−"}${formatAmount(txn.amount, currency)}",
+            style = AppType.amount(30),
+            color = if (txn.isIncome) c.incomeBright else c.expense,
+        )
+
+        // Title — per-transaction name, edits inline
+        if (editingTitle) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White.copy(alpha = 0.025f))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Rounded.Edit,
+                        contentDescription = null,
+                        tint = c.gold.copy(alpha = 0.8f),
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "This transaction only",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                        color = c.textFaint,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                    if (titleText.isEmpty()) {
+                        Text(
+                            text = txn.title,
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
+                            color = c.textFaint,
+                        )
+                    }
+                    BasicTextField(
+                        value = titleText,
+                        onValueChange = { titleText = it },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp, color = c.textPrimary),
+                        cursorBrush = SolidColor(c.gold),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(titleFocus),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (txn.customTitle != null) {
+                        Text(
+                            text = "Reset",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                            color = c.textMuted,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) {
+                                    titleText = ""
+                                    editingTitle = false
+                                    onSaveTitle(null)
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = "Cancel",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.5.sp),
+                        color = c.textMuted,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                titleText = txn.customTitle ?: ""
+                                editingTitle = false
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                    Text(
+                        text = "Save",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold),
+                        color = c.gold,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                editingTitle = false
+                                onSaveTitle(titleText.trim().ifBlank { null })
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { editingTitle = true }
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = txn.displayTitle,
+                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
+                    color = c.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    Icons.Rounded.Edit,
+                    contentDescription = "Rename transaction",
+                    tint = c.gold.copy(alpha = 0.75f),
+                    modifier = Modifier
+                        .size(13.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { editingTitle = true },
+                )
+            }
+        }
+
+        // Note — edits inline right under the title
+        if (editingNote) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White.copy(alpha = 0.025f))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Rounded.StickyNote2,
+                        contentDescription = null,
+                        tint = c.gold.copy(alpha = 0.8f),
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Private to you · this transaction only",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                        color = c.textFaint,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    if (noteText.isEmpty()) {
+                        Text(
+                            text = "Why this spend? e.g. split with Rahul",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = c.textFaint,
+                        )
+                    }
+                    BasicTextField(
+                        value = noteText,
+                        onValueChange = { noteText = it },
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = c.textPrimary),
+                        cursorBrush = SolidColor(c.gold),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 38.dp, max = 76.dp)
+                            .focusRequester(noteFocus),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (manualNote != null) {
+                        Text(
+                            text = "Clear",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                            color = c.expense,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) {
+                                    noteText = ""
+                                    editingNote = false
+                                    onSaveNote(null)
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = "Cancel",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                        color = c.textMuted,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                noteText = manualNote ?: ""
+                                editingNote = false
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    Text(
+                        text = "Save",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold),
+                        color = c.gold,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                editingNote = false
+                                onSaveNote(noteText.trim().ifBlank { null })
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { editingNote = true }
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Rounded.StickyNote2,
+                    contentDescription = null,
+                    tint = c.gold,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = manualNote ?: "Add a note",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.5.sp),
+                    color = if (manualNote == null) c.textFaint else c.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    Icons.Rounded.Edit,
+                    contentDescription = "Edit note",
+                    tint = c.gold.copy(alpha = 0.8f),
+                    modifier = Modifier
+                        .size(13.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { editingNote = true },
+                )
+            }
+        }
+
+        // Time pill
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 2.dp),
+        ) {
+            Icon(Icons.Rounded.Schedule, contentDescription = null, tint = c.gold.copy(alpha = 0.8f), modifier = Modifier.size(12.dp))
+            Spacer(Modifier.width(5.dp))
+            Text(
+                text = heroTimestamp(txn),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+                color = c.textSecondary,
+            )
+        }
+    }
+}
+
+/* --------------------------------- rows ---------------------------------- */
+
+@Composable
+private fun DetailRows(
+    txn: Transaction,
+    categoryRule: Category?,
+    reminder: ReminderEntity?,
+    aliasCount: Int,
+    onCategory: () -> Unit,
+    onAlias: () -> Unit,
+    onReminder: () -> Unit,
+    onToggleExcluded: (Boolean) -> Unit,
+    onToggleCategoryExempt: (Boolean) -> Unit,
+    onDelete: () -> Unit,
+) {
+    val c = AppTheme.colors
+    val catColor = categoryColor(txn.category)
+    var excluded by remember(txn.isExcluded) { mutableStateOf(txn.isExcluded) }
+    var deleteArmed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(deleteArmed) {
+        if (deleteArmed) {
+            delay(2500)
+            deleteArmed = false
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.Black.copy(alpha = 0.18f)),
+    ) {
+        DetailRow(
+            icon = Icons.Rounded.Restaurant,
+            tint = catColor,
+            title = "Category",
+            subtitle = txn.category.displayName,
+            onClick = onCategory,
+            trailing = {
+                if (categoryRule != null) {
+                    QuietTag(text = "Rules", color = c.gold)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = c.textFaint, modifier = Modifier.size(18.dp))
+            },
+        )
+
+        if (categoryRule != null) {
+            DetailRow(
+                icon = Icons.Rounded.AutoAwesome,
+                tint = c.gold,
+                title = "Category rule",
+                subtitle = if (txn.categoryExempt) "Keeping its own category" else "Inherits merchant rule",
+                onClick = { onToggleCategoryExempt(!txn.categoryExempt) },
+                trailing = {
+                    Pill(
+                        text = if (txn.categoryExempt) "Keeping own" else "Following rule",
+                        dotColor = if (txn.categoryExempt) c.gold else c.income,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Rounded.SyncAlt, contentDescription = null, tint = c.textFaint, modifier = Modifier.size(18.dp))
+                },
+            )
+        }
+
+        DetailRow(
+            icon = Icons.Rounded.Store,
+            tint = c.gold,
+            title = "Merchant Alias",
+            subtitle = if (txn.alias != null) "Renames all imports" else "Applies to all imports",
+            onClick = onAlias,
+            trailing = {
+                Text(
+                    text = txn.alias ?: "Not set",
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.5.sp),
+                    color = if (txn.alias == null) c.textFaint else c.goldSoft,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 104.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = c.textFaint, modifier = Modifier.size(18.dp))
+            },
+        )
+
+        DetailRow(
+            icon = Icons.Rounded.CreditCard,
+            tint = c.gold,
+            title = "Bank / Card",
+            subtitle = bankLine(txn),
+            subtitleSingleLine = false,
+            onClick = {},
+            trailing = {},
+        )
+
+        DetailRow(
+            icon = Icons.Rounded.NotificationsNone,
+            tint = c.textSecondary,
+            title = "Reminder",
+            subtitle = reminderSubtitle(reminder),
+            onClick = onReminder,
+            trailing = {
+                if (reminder != null) {
+                    Text(
+                        text = "%02d:%02d".format(reminder.hour, reminder.minute),
+                        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.5.sp),
+                        color = c.goldSoft,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+                Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = c.textFaint, modifier = Modifier.size(18.dp))
+            },
+        )
+
+        DetailRow(
+            icon = Icons.Rounded.VisibilityOff,
+            tint = if (excluded) c.gold else c.textSecondary,
+            title = "Exclude from totals",
+            subtitle = "Hide from totals & charts, keep record",
+            subtitleSingleLine = false,
+            onClick = {
+                excluded = !excluded
+                onToggleExcluded(excluded)
+            },
+            trailing = {
+                WarmSwitch(
+                    checked = excluded,
+                    onCheckedChange = {
+                        excluded = it
+                        onToggleExcluded(it)
+                    },
+                )
+            },
+        )
+
+        val rose = Color(0xFFE57373)
         Row(
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
                 .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 16.dp),
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {
+                    if (deleteArmed) onDelete() else deleteArmed = true
+                }
+                .padding(horizontal = 16.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.04f))
-                    .border(1.dp, AppTheme.colors.hairline, CircleShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { if (view != View.DETAIL) view = View.DETAIL else onBack() },
-                    ),
+                    .background(rose.copy(alpha = 0.10f))
+                    .border(1.dp, rose.copy(alpha = 0.16f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back",
-                    tint = AppTheme.colors.textMuted,
-                    modifier = Modifier.size(18.dp),
-                )
+                Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = rose, modifier = Modifier.size(19.dp))
             }
             Spacer(Modifier.width(12.dp))
             Text(
-                text = "Transaction Detail",
-                style = MaterialTheme.typography.titleLarge,
-                color = AppTheme.colors.textPrimary,
+                text = if (deleteArmed) "Tap again to confirm" else "Delete transaction",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.5.sp, fontWeight = FontWeight.Medium),
+                color = rose,
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.weight(1f))
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(AppTheme.colors.gold.copy(alpha = 0.18f), AppTheme.colors.secondary.copy(alpha = 0.12f)),
-                        )
-                    )
-                    .border(1.dp, AppTheme.colors.hairline, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Rounded.Person, contentDescription = null, tint = AppTheme.colors.gold, modifier = Modifier.size(18.dp))
-            }
-        }
-
-        AnimatedContent(
-            targetState = view,
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .padding(top = 64.dp),
-            transitionSpec = {
-                (slideInVertically(tween(260)) { it } + fadeIn(tween(260))) togetherWith
-                    (slideOutVertically(tween(260)) { -it } + fadeOut(tween(260)))
-            },
-            label = "detailView",
-        ) { target ->
-            when (target) {
-                View.CATEGORY -> CategoryRulesSheet(
-                    merchant = txn.title,
-                    currentCategory = txn.category,
-                    currentRule = categoryRule,
-                    currentAlias = txn.alias,
-                    onDismiss = { view = View.DETAIL },
-                    onApply = { category, createRule, alias ->
-                        if (createRule) {
-                            viewModel.setCategory(txn.id, txn.title, category, true)
-                        } else {
-                            viewModel.setCategory(txn.id, txn.title, category, false)
-                        }
-                        if (alias != null) viewModel.setAlias(txn.id, txn.title, alias)
-                        view = View.DETAIL
-                    },
-                )
-                View.REMINDER -> ReminderPanel(
-                    transaction = txn,
-                    existingReminder = reminder,
-                    onBack = { view = View.DETAIL },
-                    onConfirm = { daysBefore, customDate, hour, minute ->
-                        viewModel.setReminder(txn, daysBefore, customDate, hour, minute)
-                        view = View.DETAIL
-                    },
-                    onRemove = {
-                        viewModel.removeReminder(txn.id)
-                        view = View.DETAIL
-                    },
-                )
-                View.DETAIL -> DetailBody(
-                    txn = txn,
-                    currency = currency,
-                    categoryRule = categoryRule,
-                    reminder = reminder,
-                    onCategory = { view = View.CATEGORY },
-                    onEditAlias = { editing = EditTarget.ALIAS },
-                    onEditTitle = { editing = EditTarget.TITLE },
-                    onEditNote = { editing = EditTarget.NOTE },
-                    onReminder = { view = View.REMINDER },
-                    onToggleExcluded = { viewModel.toggleExcluded(txn.id, it) },
-                    onToggleCategoryExempt = { viewModel.setCategoryExempt(txn.id, txn.title, it) },
-                    onDelete = { showDeleteConfirm = true },
-                    onClose = onBack,
-                    onSave = onBack,
-                )
-            }
-        }
-    }
-
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete transaction?", color = AppTheme.colors.textPrimary) },
-            text = {
-                Text(
-                    "This will permanently remove \"${txn.displayTitle}\".",
-                    color = AppTheme.colors.textSecondary,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteTransaction(txn.id)
-                    showDeleteConfirm = false
-                    onBack()
-                }) { Text("Delete", color = AppTheme.colors.expense) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel", color = AppTheme.colors.textMuted) }
-            },
-            containerColor = AppTheme.colors.cardRaised,
-        )
-    }
-
-    editing?.let { target ->
-        val current = when (target) {
-            EditTarget.TITLE -> txn.customTitle ?: ""
-            EditTarget.ALIAS -> txn.alias ?: ""
-            EditTarget.NOTE -> txn.note?.takeIf { txn.noteIsManual } ?: ""
-        }
-        var text by remember(target) { mutableStateOf(current) }
-        AlertDialog(
-            onDismissRequest = { editing = null },
-            title = {
-                Text(
-                    when (target) {
-                        EditTarget.TITLE -> "Rename transaction"
-                        EditTarget.ALIAS -> "Set alias"
-                        EditTarget.NOTE -> "Note"
-                    },
-                    color = AppTheme.colors.textPrimary,
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = when (target) {
-                            EditTarget.TITLE -> "Only this transaction. Use Set Alias to rename every transaction with the parsed title."
-                            EditTarget.ALIAS -> "Applies to all past and future transactions with title \"${txn.title}\"."
-                            EditTarget.NOTE -> "A personal reason or note for this transaction."
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AppTheme.colors.textMuted,
-                    )
-                    OutlinedTextField(
-                        value = text,
-                        onValueChange = { text = it },
-                        singleLine = target != EditTarget.NOTE,
-                        minLines = if (target == EditTarget.NOTE) 3 else 1,
-                        maxLines = if (target == EditTarget.NOTE) 4 else 1,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = AppTheme.colors.textPrimary,
-                            unfocusedTextColor = AppTheme.colors.textPrimary,
-                            focusedBorderColor = AppTheme.colors.gold,
-                            unfocusedBorderColor = AppTheme.colors.hairline,
-                            cursorColor = AppTheme.colors.gold,
-                        ),
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val value = text.trim().ifBlank { null }
-                    when (target) {
-                        EditTarget.TITLE -> viewModel.setCustomTitle(txn.id, value)
-                        EditTarget.ALIAS -> viewModel.setAlias(txn.id, txn.title, value)
-                        EditTarget.NOTE -> viewModel.setNote(txn.id, value)
-                    }
-                    editing = null
-                }) { Text("Save", color = AppTheme.colors.gold) }
-            },
-            dismissButton = {
-                TextButton(onClick = { editing = null }) { Text("Cancel", color = AppTheme.colors.textMuted) }
-            },
-            containerColor = AppTheme.colors.cardRaised,
-        )
-    }
-}
-
-private enum class EditTarget { TITLE, ALIAS, NOTE }
-
-@Composable
-private fun DetailBody(
-    txn: Transaction,
-    currency: com.expensetracker.app.ui.feature.home.Currency,
-    categoryRule: Category?,
-    reminder: ReminderEntity?,
-    onCategory: () -> Unit,
-    onEditAlias: () -> Unit,
-    onEditTitle: () -> Unit,
-    onEditNote: () -> Unit,
-    onReminder: () -> Unit,
-    onToggleExcluded: (Boolean) -> Unit,
-    onToggleCategoryExempt: (Boolean) -> Unit,
-    onDelete: () -> Unit,
-    onClose: () -> Unit,
-    onSave: () -> Unit,
-) {
-    val c = AppTheme.colors
-    val catColor = categoryColor(txn.category)
-    var excluded by remember(txn.isExcluded) { mutableStateOf(txn.isExcluded) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .imePadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        // Floating modal card
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
-                .background(c.card.copy(alpha = 0.72f))
-                .border(1.dp, c.hairline, RoundedCornerShape(32.dp))
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            // Drag handle
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .size(width = 44.dp, height = 4.dp)
-                    .clip(CircleShape)
-                    .background(c.textFaint.copy(alpha = 0.4f)),
-            )
-
-            // Hero
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Canvas(modifier = Modifier.size(84.dp)) {
-                        val r = size.minDimension / 2f
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                listOf(c.secondary.copy(alpha = 0.28f), Color.Transparent),
-                                center = center,
-                                radius = r,
-                            ),
-                            radius = r,
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(Color(0xFF25221F), Color(0xFF181513)),
-                                )
-                            )
-                            .border(1.dp, c.gold.copy(alpha = 0.25f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = categoryIcon(txn.category),
-                            contentDescription = null,
-                            tint = catColor,
-                            modifier = Modifier.size(30.dp),
-                        )
-                    }
-                }
-
-                Text(
-                    text = "${if (txn.isIncome) "+" else "−"}${formatAmount(txn.amount, currency)}",
-                    style = AppType.amount(38),
-                    color = if (txn.isIncome) c.incomeBright else c.expense,
-                )
-
-                Text(
-                    text = txn.displayTitle,
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
-                    color = c.textPrimary,
-                    modifier = Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onEditTitle,
-                    ),
-                )
-
-                val dateTime = remember(txn.smsDate, txn.date) {
-                    if (txn.smsDate != null) {
-                        java.time.Instant.ofEpochMilli(txn.smsDate!!)
-                            .atZone(java.time.ZoneId.systemDefault())
-                            .format(DateTimeFormatter.ofPattern("d MMM yyyy, h:mm a"))
-                    } else {
-                        txn.date.format(DateTimeFormatter.ofPattern("d MMM yyyy"))
-                    }
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.04f))
-                        .border(1.dp, c.hairline, CircleShape)
-                        .padding(horizontal = 12.dp, vertical = 5.dp),
-                ) {
-                    Text(
-                        text = dateTime,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = c.textMuted,
-                    )
-                }
-            }
-
-            // Detail rows container
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(Color.Black.copy(alpha = 0.25f))
-                    .border(1.dp, c.hairline, RoundedCornerShape(26.dp)),
-            ) {
-                DetailRow(
-                    icon = Icons.Rounded.LocalDining,
-                    iconTint = catColor,
-                    label = "Category",
-                    value = txn.category.displayName,
-                    onClick = onCategory,
-                )
-                if (categoryRule != null) {
-                    DetailDivider()
-                    DetailRow(
-                        icon = Icons.Rounded.Category,
-                        iconTint = if (txn.categoryExempt) c.gold else c.secondary,
-                        label = "Category rule",
-                        value = if (txn.categoryExempt) "Keeping own" else "Following rule",
-                        valueMuted = false,
-                        onClick = { onToggleCategoryExempt(!txn.categoryExempt) },
-                    )
-                }
-                DetailDivider()
-                DetailRow(
-                    icon = Icons.Rounded.Storefront,
-                    iconTint = c.gold,
-                    label = "Alias",
-                    value = txn.alias ?: "None",
-                    valueMuted = txn.alias == null,
-                    onClick = onEditAlias,
-                )
-                DetailDivider()
-                val manualNote = txn.note?.takeIf { txn.noteIsManual }
-                DetailRow(
-                    icon = Icons.Rounded.EditNote,
-                    iconTint = c.goldSoft,
-                    label = "Note",
-                    value = manualNote ?: "Add a note",
-                    valueMuted = manualNote == null,
-                    onClick = onEditNote,
-                )
-                DetailDivider()
-                val reminderLabel = when {
-                    reminder == null -> "None"
-                    reminder!!.customDate != null -> "On ${java.time.LocalDate.ofEpochDay(reminder!!.customDate).format(DateTimeFormatter.ofPattern("MMM d"))}"
-                    reminder!!.daysBefore == 0 -> "On payment day"
-                    else -> "${reminder!!.daysBefore}d before"
-                }
-                DetailRow(
-                    icon = Icons.Rounded.NotificationsNone,
-                    iconTint = c.textMuted,
-                    label = "Reminder",
-                    value = if (reminder != null) "$reminderLabel · %02d:%02d".format(reminder!!.hour, reminder!!.minute) else "None",
-                    valueMuted = reminder == null,
-                    onClick = onReminder,
-                )
-                DetailDivider()
-                DetailRow(
-                    icon = Icons.Rounded.CreditCard,
-                    iconTint = c.gold,
-                    label = "Bank / Card",
-                    value = txn.displayAccount ?: "—",
-                    onClick = {},
-                )
-                DetailDivider()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(c.textMuted.copy(alpha = 0.12f))
-                            .border(1.dp, c.textMuted.copy(alpha = 0.2f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Rounded.VisibilityOff,
-                            contentDescription = null,
-                            tint = c.textMuted,
-                            modifier = Modifier.size(19.dp),
-                        )
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Text(
-                        text = "Exclude from totals",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
-                        color = c.textSecondary,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Toggle(
-                        checked = excluded,
-                        onCheckedChange = {
-                            excluded = it
-                            onToggleExcluded(it)
-                        },
-                    )
-                }
-                DetailDivider()
-                DetailRow(
-                    icon = Icons.Rounded.DeleteOutline,
-                    iconTint = c.expense,
-                    label = "Delete transaction",
-                    value = "",
-                    valueColor = c.expense,
-                    onClick = onDelete,
-                )
-            }
-
-            // Close / Save
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.05f))
-                        .border(1.dp, c.hairline, CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onClose,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("Close", style = MaterialTheme.typography.labelLarge, color = c.textPrimary)
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                listOf(c.goldSoft, c.gold, c.goldDeep),
-                            )
-                        )
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onSave,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "Save",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color(0xFF14120E),
-                    )
-                }
-            }
-
-            if (!txn.rawSms.isNullOrBlank()) {
-                Text(
-                    text = "Original SMS",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = c.textPrimary,
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(c.card.copy(alpha = 0.55f))
-                        .border(1.dp, c.hairline, RoundedCornerShape(16.dp))
-                        .padding(14.dp),
-                ) {
-                    Text(
-                        text = txn.rawSms,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = c.textSecondary,
-                    )
-                }
-            }
+            Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = rose.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -655,12 +919,13 @@ private fun DetailBody(
 @Composable
 private fun DetailRow(
     icon: ImageVector,
-    iconTint: Color,
-    label: String,
-    value: String,
-    valueMuted: Boolean = false,
-    valueColor: Color = AppTheme.colors.textPrimary,
+    tint: Color,
+    title: String,
+    subtitle: String?,
+    badge: String? = null,
+    subtitleSingleLine: Boolean = true,
     onClick: () -> Unit,
+    trailing: @Composable () -> Unit,
 ) {
     val c = AppTheme.colors
     Row(
@@ -671,57 +936,95 @@ private fun DetailRow(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 16.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(iconTint.copy(alpha = 0.12f))
-                .border(1.dp, iconTint.copy(alpha = 0.2f), CircleShape),
+                .background(tint.copy(alpha = 0.10f))
+                .border(1.dp, tint.copy(alpha = 0.18f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(19.dp))
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(19.dp))
         }
-        Spacer(Modifier.width(14.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
-            color = c.textSecondary,
-            modifier = Modifier.weight(1f),
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    color = c.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (badge != null) {
+                    Spacer(Modifier.width(6.dp))
+                    QuietTag(text = badge, color = c.gold)
+                }
+            }
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                    color = c.textMuted,
+                    maxLines = if (subtitleSingleLine) 1 else 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) { trailing() }
+    }
+}
+
+/** Bare tinted label: no outline, no fill weight. */
+@Composable
+private fun QuietTag(text: String, color: Color) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, fontWeight = FontWeight.Medium),
+        color = color,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(color.copy(alpha = 0.09f))
+            .padding(horizontal = 7.dp, vertical = 2.dp),
+    )
+}
+
+@Composable
+private fun Pill(text: String, dotColor: Color) {
+    val c = AppTheme.colors
+    Row(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.05f))
+            .padding(horizontal = 9.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(5.dp)
+                .clip(CircleShape)
+                .background(dotColor),
         )
-        if (value.isNotEmpty()) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp),
-                color = if (valueMuted) c.textFaint else valueColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-        }
-        Icon(
-            Icons.Rounded.KeyboardArrowRight,
-            contentDescription = null,
-            tint = c.textFaint,
-            modifier = Modifier.size(18.dp),
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+            color = c.goldSoft,
         )
     }
 }
 
 @Composable
-private fun DetailDivider() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(AppTheme.colors.hairline),
-    )
-}
-
-@Composable
-private fun Toggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun WarmSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val c = AppTheme.colors
     Box(
         modifier = Modifier
@@ -734,7 +1037,7 @@ private fun Toggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
                 indication = null,
                 onClick = { onCheckedChange(!checked) },
             )
-            .padding(3.dp),
+            .padding(2.dp),
         contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
     ) {
         Box(
@@ -744,4 +1047,37 @@ private fun Toggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
                 .background(if (checked) c.canvas else c.textFaint),
         )
     }
+}
+
+/* -------------------------------- helpers -------------------------------- */
+
+private fun heroTimestamp(txn: Transaction): String {
+    val millis = txn.smsDate
+    return if (millis != null) {
+        Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("d MMM yyyy, h:mm a"))
+    } else {
+        txn.date.format(DateTimeFormatter.ofPattern("d MMM yyyy"))
+    }
+}
+
+private fun formatShort(millis: Long): String =
+    Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("d-MMM-yy HH:mm"))
+
+private fun bankLine(txn: Transaction): String {
+    val name = txn.displayAccount ?: txn.bankName ?: "Unknown bank"
+    val last4 = txn.accountLast4
+    return if (last4 != null && !name.contains(last4)) "$name (··$last4)" else name
+}
+
+private fun reminderSubtitle(reminder: ReminderEntity?): String {
+    if (reminder == null) return "No reminder set"
+    val day = when {
+        reminder.customDate != null -> java.time.LocalDate.ofEpochDay(reminder.customDate)
+            .format(DateTimeFormatter.ofPattern("MMM d"))
+        reminder.daysBefore == 0 -> "payment day"
+        else -> "${reminder.daysBefore}d before"
+    }
+    return if (reminder.customDate != null) "Reminds on $day" else "Reminds $day"
 }

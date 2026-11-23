@@ -296,13 +296,26 @@ fun CategoryRulesSheet(
                         color = c.textSecondary,
                     )
                     Spacer(Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(c.hairline.copy(alpha = 0.6f)),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Applies automatically to future bank SMS & card alerts",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                        color = c.textFaint,
+                    )
+                    Spacer(Modifier.height(8.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
                             .background(c.cardRaised.copy(alpha = 0.6f))
                             .border(1.dp, c.hairline, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                            .padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text("Alias:", style = MaterialTheme.typography.labelSmall, color = c.textFaint)
@@ -310,22 +323,30 @@ fun CategoryRulesSheet(
                         Text(
                             text = alias.ifBlank { "None" },
                             style = MaterialTheme.typography.labelLarge,
-                            color = c.textPrimary,
+                            color = if (alias.isBlank()) c.textFaint else c.goldSoft,
                             modifier = Modifier.weight(1f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Icon(
-                            Icons.Rounded.Edit,
-                            contentDescription = "Edit alias",
-                            tint = c.gold,
+                        Box(
                             modifier = Modifier
-                                .size(17.dp)
+                                .size(26.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(c.gold.copy(alpha = 0.1f))
+                                .border(1.dp, c.gold.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
                                 ) { editingAlias = !editingAlias },
-                        )
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Rounded.Edit,
+                                contentDescription = "Edit alias",
+                                tint = c.gold,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
                     }
                     if (editingAlias) {
                         Spacer(Modifier.height(6.dp))

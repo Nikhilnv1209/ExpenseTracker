@@ -267,6 +267,9 @@ class HomeViewModel @Inject constructor(
         return categoryRuleDao.findByTitle(title)?.category?.let { Category.fromDisplayName(it) }
     }
 
+    /** Number of live transactions that an alias change would rename. */
+    suspend fun getAliasImpactCount(title: String): Int = transactionDao.countByTitle(title)
+
     suspend fun getTransaction(transactionId: Long): Transaction? {
         return transactionDao.getById(transactionId)?.toDomain()
     }
