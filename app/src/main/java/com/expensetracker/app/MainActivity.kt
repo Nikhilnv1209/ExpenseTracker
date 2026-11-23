@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -19,11 +20,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.expensetracker.app.ui.components.AppBottomBar
 import com.expensetracker.app.ui.feature.agent.AgentChatScreen
 import com.expensetracker.app.ui.feature.accounts.AccountsScreen
 import com.expensetracker.app.ui.feature.aliases.AliasesScreen
@@ -63,6 +67,7 @@ class MainActivity : ComponentActivity() {
                     val pendingId = pendingTransactionId.value
                     val backStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = backStackEntry?.destination?.route
+                    Box(modifier = Modifier.fillMaxSize()) {
                     LaunchedEffect(pendingId, currentRoute) {
                         if (pendingId != null && currentRoute != null && currentRoute != "home") {
                             navController.navigate("home") {
@@ -154,9 +159,28 @@ class MainActivity : ComponentActivity() {
                             AgentChatScreen(onBack = { navController.popBackStack() })
                         }
                     }
+
+                    val tabRoutes = setOf("home", "transactions", "agent", "settings")
+                    if (currentRoute in tabRoutes) {
+                        AppBottomBar(
+                            currentRoute = currentRoute,
+                            onNavigate = { route ->
+                                if (route != currentRoute) {
+                                    navController.navigate(route) {
+                                        popUpTo("home") { inclusive = route == "home" }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .zIndex(2f),
+                        )
+                    }
                 }
             }
         }
+    }
     }
 
     override fun onNewIntent(intent: Intent) {

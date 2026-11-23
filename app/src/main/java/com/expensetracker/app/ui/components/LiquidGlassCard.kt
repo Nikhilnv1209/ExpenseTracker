@@ -22,12 +22,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 
-private val GlassSurface = Color(0xFF1A1825)
-private val GlassSurfaceLight = Color(0xFF252236)
-private val GlassHighlight = Color.White
-private val GlassBorder = Color.White
+private val GlassSurface = Color(0xFF14110E)
+private val GlassSurfaceLight = Color(0xFF1F1A15)
+private val GlassHighlight = Color(0xFFF3E5AB)
+private val GlassBorder = Color(0xFFE2C799)
 
-val LiquidGlassSheetColor = Color(0xFF1A1825)
+val LiquidGlassSheetColor = Color(0xFF120F0D)
 
 @Composable
 fun Modifier.liquidGlassSheetHighlight(): Modifier {

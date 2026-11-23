@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 
-private val GlassTint = Color(0xFF1A1825).copy(alpha = 0.4f)
+private val GlassTint = Color(0xFF120F0D).copy(alpha = 0.72f)
 private val GlassHighlight = Color.White
 
 @Composable

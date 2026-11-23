@@ -80,7 +80,7 @@ fun ExpandableFab(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = 28.dp),
+                .padding(end = 20.dp, bottom = 100.dp),
             horizontalAlignment = Alignment.End,
         ) {
             actions.forEachIndexed { index, action ->
@@ -113,14 +113,15 @@ fun ExpandableFab(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShapeOnly(20, 12, 12, 20))
-                                .background(Color(0xFF1A1825))
+                                .background(Color(0xFF14110E).copy(alpha = 0.96f))
+                                .border(1.dp, Color(0xFFE2C799).copy(alpha = 0.18f), RoundedCornerShapeOnly(20, 12, 12, 20))
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                         ) {
                             Text(
                                 text = action.label,
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFFFAF7F2),
                             )
                         }
                         Spacer(Modifier.width(10.dp))
@@ -155,11 +156,11 @@ fun ExpandableFab(
                     .size(56.dp)
                     .clip(CircleShape)
                     .background(
-                        Brush.verticalGradient(
-                            listOf(Color(0xFF7C3AED).copy(alpha = 0.3f), Color(0xFF5B21B6).copy(alpha = 0.15f))
+                        Brush.linearGradient(
+                            listOf(Color(0xFFF3E5AB), Color(0xFFE2C799), Color(0xFFD4AF37))
                         )
                     )
-                    .border(1.dp, Color(0xFF7C3AED).copy(alpha = 0.4f), CircleShape)
+                    .border(1.dp, Color(0x66F3E5AB), CircleShape)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -169,7 +170,7 @@ fun ExpandableFab(
                 Icon(
                     imageVector = Icons.Rounded.Add,
                     contentDescription = "Add",
-                    tint = Color.White,
+                    tint = Color(0xFF2A1E10),
                     modifier = Modifier
                         .size(28.dp)
                         .rotate(rotation),

@@ -52,9 +52,9 @@ import java.time.YearMonth
 import java.util.Calendar
 import kotlin.math.roundToInt
 
-private val accentColor = Color(0xFF7C3AED)
-private val incomeColor = Color(0xFF4CAF50)
-private val expenseColor = Color(0xFFE91E63)
+private val accentColor = Color(0xFFE2C799)
+private val incomeColor = Color(0xFF7CA682)
+private val expenseColor = Color(0xFFD08075)
 
 data class DailyExpense(val day: Int, val epochDay: Long, val total: Double, val income: Double = 0.0)
 
@@ -458,8 +458,8 @@ private fun LineChartView(
                     modifier = Modifier
                         .offset { IntOffset(adjustedX.roundToInt(), adjustedY.roundToInt()) }
                         .background(
-                            color = Color(0xFF1A1825).copy(alpha = 0.85f),
-                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF14110E).copy(alpha = 0.95f),
+                            shape = RoundedCornerShape(12.dp),
                         )
                         .background(
                             Brush.verticalGradient(
