@@ -961,24 +961,15 @@ private fun TransactionCard(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(vertical = 10.dp),
+            .padding(vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(catColor.copy(alpha = 0.14f))
-                .border(1.dp, catColor.copy(alpha = 0.25f), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = categoryIcon(transaction.category),
-                contentDescription = null,
-                tint = catColor,
-                modifier = Modifier.size(21.dp),
-            )
-        }
+        Icon(
+            imageVector = categoryIcon(transaction.category),
+            contentDescription = null,
+            tint = catColor,
+            modifier = Modifier.size(22.dp),
+        )
 
         Spacer(Modifier.width(14.dp))
 
