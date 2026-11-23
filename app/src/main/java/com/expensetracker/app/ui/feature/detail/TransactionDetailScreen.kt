@@ -194,12 +194,19 @@ fun TransactionDetailScreen(
             label = "detailView",
         ) { target ->
             when (target) {
-                View.CATEGORY -> CategoryPanel(
-                    title = txn.title,
+                View.CATEGORY -> CategoryRulesSheet(
+                    merchant = txn.title,
                     currentCategory = txn.category,
-                    onBack = { view = View.DETAIL },
-                    onConfirm = { category, applyToAll ->
-                        viewModel.setCategory(txn.id, txn.title, category, applyToAll)
+                    currentRule = categoryRule,
+                    currentAlias = txn.alias,
+                    onDismiss = { view = View.DETAIL },
+                    onApply = { category, createRule, alias ->
+                        if (createRule) {
+                            viewModel.setCategory(txn.id, txn.title, category, true)
+                        } else {
+                            viewModel.setCategory(txn.id, txn.title, category, false)
+                        }
+                        if (alias != null) viewModel.setAlias(txn.id, txn.title, alias)
                         view = View.DETAIL
                     },
                 )
