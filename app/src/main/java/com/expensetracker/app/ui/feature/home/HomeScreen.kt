@@ -137,6 +137,7 @@ fun HomeScreen(
     onSelectCurrency: (Currency) -> Unit = {},
     pendingTransactionId: Long? = null,
     onTransactionHandled: () -> Unit = {},
+    onOpenTransaction: (Long) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -151,9 +152,6 @@ fun HomeScreen(
     }
 
     var showFilter by remember { mutableStateOf(false) }
-    var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
-    var selectedTransactionId by remember { mutableStateOf<Long?>(null) }
-    var reminderVersion by remember { mutableStateOf(0) }
     var showAddTransaction by remember { mutableStateOf(false) }
     var addTransactionIsIncome by remember { mutableStateOf(false) }
     var addTransactionContent by remember { mutableStateOf(false) }
@@ -167,30 +165,13 @@ fun HomeScreen(
 
     LaunchedEffect(pendingTransactionId) {
         val id = pendingTransactionId ?: return@LaunchedEffect
-        viewModel.getTransaction(id)?.let { transaction ->
-            selectedTransaction = transaction
-            selectedTransactionId = transaction.id
-        }
+        onOpenTransaction(id)
         onTransactionHandled()
     }
 
-    LaunchedEffect(selectedTransactionId) {
-        val id = selectedTransactionId
-        if (id == null) {
-            selectedTransaction = null
-            return@LaunchedEffect
-        }
-        viewModel.observeTransaction(id).collect { latest ->
-            selectedTransaction = latest
-            if (latest == null) selectedTransactionId = null
-        }
-    }
-
-    val isSheetOpen = selectedTransaction != null || showFilter || showAddTransaction
+    val isSheetOpen = showFilter || showAddTransaction
     BackHandler(enabled = isSheetOpen) {
         showFilter = false
-        selectedTransaction = null
-        selectedTransactionId = null
         showAddTransaction = false
     }
 
@@ -198,8 +179,6 @@ fun HomeScreen(
         isSheetOpen = isSheetOpen,
         onDismiss = {
             showFilter = false
-            selectedTransaction = null
-            selectedTransactionId = null
             showAddTransaction = false
         },
         mainContent = {
@@ -269,10 +248,7 @@ fun HomeScreen(
                             TransactionCard(
                                 transaction = transaction,
                                 currency = selectedCurrency,
-                                onClick = {
-                                    selectedTransaction = transaction
-                                    selectedTransactionId = transaction.id
-                                },
+                                onClick = { onOpenTransaction(transaction.id) },
                             )
                         }
 
@@ -325,59 +301,6 @@ fun HomeScreen(
                 onReset = {
                     showFilter = false
                     viewModel.resetFilter()
-                },
-            )
-        }
-
-        selectedTransaction?.let { txn ->
-            val categoryRule by androidx.compose.runtime.produceState(
-                initialValue = null as Category?,
-                key1 = txn.title,
-            ) {
-                value = viewModel.getCategoryRule(txn.title)
-            }
-            val reminder by androidx.compose.runtime.produceState(
-                initialValue = null as com.expensetracker.app.data.local.ReminderEntity?,
-                key1 = txn.id,
-                key2 = reminderVersion,
-            ) {
-                value = viewModel.getReminder(txn.id)
-            }
-            TransactionDetailSheet(
-                transaction = txn,
-                currency = selectedCurrency,
-                categoryRule = categoryRule,
-                reminder = reminder,
-                onToggleExcluded = { excluded ->
-                    viewModel.toggleExcluded(txn.id, excluded)
-                },
-                onSetAlias = { alias ->
-                    viewModel.setAlias(txn.id, txn.title, alias)
-                },
-                onSetCustomTitle = { title ->
-                    viewModel.setCustomTitle(txn.id, title)
-                },
-                onSetNote = { note ->
-                    viewModel.setNote(txn.id, note)
-                },
-                onSetCategory = { category, applyToAll ->
-                    viewModel.setCategory(txn.id, txn.title, category, applyToAll)
-                },
-                onSetCategoryExempt = { exempt ->
-                    viewModel.setCategoryExempt(txn.id, txn.title, exempt)
-                },
-                onSetReminder = { daysBefore, customDate, hour, minute ->
-                    viewModel.setReminder(txn, daysBefore, customDate, hour, minute)
-                    reminderVersion++
-                },
-                onRemoveReminder = {
-                    viewModel.removeReminder(txn.id)
-                    reminderVersion++
-                },
-                onDelete = {
-                    viewModel.deleteTransaction(txn.id)
-                    selectedTransaction = null
-                    selectedTransactionId = null
                 },
             )
         }

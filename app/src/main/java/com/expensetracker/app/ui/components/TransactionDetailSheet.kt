@@ -874,7 +874,7 @@ private fun DetailRow(label: String, value: String, valueColor: Color = Material
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun ReminderPanel(
+internal fun ReminderPanel(
     transaction: Transaction,
     existingReminder: ReminderEntity?,
     onBack: () -> Unit,
@@ -1552,7 +1552,7 @@ private fun CustomDatePickerDialog(
 }
 
 @Composable
-private fun CategoryPanel(
+internal fun CategoryPanel(
     title: String,
     currentCategory: Category,
     onBack: () -> Unit,

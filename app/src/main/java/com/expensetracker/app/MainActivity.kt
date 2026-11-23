@@ -32,6 +32,7 @@ import com.expensetracker.app.ui.feature.agent.AgentChatScreen
 import com.expensetracker.app.ui.feature.accounts.AccountsScreen
 import com.expensetracker.app.ui.feature.aliases.AliasesScreen
 import com.expensetracker.app.ui.feature.categoryrules.CategoryRulesScreen
+import com.expensetracker.app.ui.feature.detail.TransactionDetailScreen
 import com.expensetracker.app.ui.feature.excluded.ExcludedTransactionsScreen
 import com.expensetracker.app.ui.feature.home.HomeScreen
 import com.expensetracker.app.ui.feature.home.currencies
@@ -118,6 +119,9 @@ class MainActivity : ComponentActivity() {
                                 onSelectCurrency = { selectedCurrency = it },
                                 pendingTransactionId = pendingId,
                                 onTransactionHandled = { pendingTransactionId.value = null },
+                                onOpenTransaction = { id ->
+                                    navController.navigate("transaction_detail/$id")
+                                },
                             )
                         }
                         composable("settings") {
@@ -157,6 +161,14 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("agent") {
                             AgentChatScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable("transaction_detail/{id}") { entry ->
+                            val id = entry.arguments?.getString("id")?.toLongOrNull() ?: -1L
+                            TransactionDetailScreen(
+                                transactionId = id,
+                                currency = selectedCurrency,
+                                onBack = { navController.popBackStack() },
+                            )
                         }
                     }
 
