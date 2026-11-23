@@ -1,7 +1,6 @@
 package com.expensetracker.app.ui.feature.detail
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -21,18 +20,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,22 +46,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.expensetracker.app.domain.model.Category
+import com.expensetracker.app.ui.components.rememberSheetProgress
 import com.expensetracker.app.ui.feature.home.categoryColor
 import com.expensetracker.app.ui.feature.home.categoryIcon
-import com.expensetracker.app.ui.components.rememberSheetProgress
 import com.expensetracker.app.ui.theme.AppTheme
 import com.expensetracker.app.ui.theme.AppType
 
 /**
- * "Category & Rules" sheet from the design: compact 2-column category grid,
- * smart merchant rule toggle with alias editor, and Apply & Update Rule CTA.
- * The sheet is capped so the action buttons are always visible.
+ * "Category & Rules" sheet: pick a category, optionally turn it into a smart
+ * merchant rule, and optionally set the merchant alias in one pass.
  */
 @Composable
 fun CategoryRulesSheet(
@@ -78,6 +80,7 @@ fun CategoryRulesSheet(
     var alias by remember { mutableStateOf(currentAlias ?: "") }
     var editingAlias by remember { mutableStateOf(false) }
     val progress = rememberSheetProgress(visible)
+    val gridState = rememberLazyGridState()
 
     LaunchedEffect(visible) {
         if (visible) {
@@ -86,6 +89,8 @@ fun CategoryRulesSheet(
             ruleOn = currentRule != null
             alias = currentAlias ?: ""
             editingAlias = false
+            val index = Category.entries.indexOf(currentCategory)
+            if (index > 4) gridState.scrollToItem(index)
         }
     }
 
@@ -99,7 +104,7 @@ fun CategoryRulesSheet(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f * progress))
+                .background(Color.Black.copy(alpha = 0.6f * progress))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -112,51 +117,51 @@ fun CategoryRulesSheet(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .graphicsLayer {
-                    translationY = (1f - progress) * 480.dp.toPx()
-                },
+                .graphicsLayer { translationY = (1f - progress) * 480.dp.toPx() },
         ) {
-            val maxSheetHeight = maxHeight * 0.78f
+            val sheetMax = maxHeight * 0.88f
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = maxSheetHeight)
+                    .heightIn(max = sheetMax)
                     .imePadding()
-                    .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                    .background(c.card)
-                    .border(1.dp, c.hairline, RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                    .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                    .background(c.cardRaised)
+                    .padding(horizontal = 22.dp)
+                    .padding(top = 12.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                // Drag handle
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
                         .size(width = 40.dp, height = 4.dp)
                         .clip(CircleShape)
-                        .background(c.textFaint.copy(alpha = 0.4f)),
+                        .background(c.textPrimary.copy(alpha = 0.18f)),
                 )
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(4.dp))
 
+                // Header
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Category & Rules",
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 21.sp),
                             color = c.textPrimary,
                         )
+                        Spacer(Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                Icons.Rounded.AutoAwesome,
+                                Icons.Rounded.Storefront,
                                 contentDescription = null,
-                                tint = c.gold,
-                                modifier = Modifier.size(12.dp),
+                                tint = c.gold.copy(alpha = 0.7f),
+                                modifier = Modifier.size(13.dp),
                             )
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(6.dp))
                             Text(
                                 text = merchant,
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.5.sp),
                                 color = c.textMuted,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -167,8 +172,7 @@ fun CategoryRulesSheet(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(c.cardRaised)
-                            .border(1.dp, c.hairline, CircleShape)
+                            .background(Color.White.copy(alpha = 0.04f))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -176,57 +180,77 @@ fun CategoryRulesSheet(
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Close", tint = c.textMuted, modifier = Modifier.size(17.dp))
+                        Icon(Icons.Rounded.Close, contentDescription = "Close", tint = c.textMuted, modifier = Modifier.size(16.dp))
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
+                // Search
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(c.surface)
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Rounded.Search,
+                        contentDescription = null,
+                        tint = c.textFaint,
+                        modifier = Modifier.size(17.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        if (query.isEmpty()) {
+                            Text(
+                                text = "Search categories",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.5.sp),
+                                color = c.textFaint,
+                            )
+                        }
+                        BasicTextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.5.sp, color = c.textPrimary),
+                            cursorBrush = SolidColor(c.gold),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
 
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = {
-                        Text("Search categories...", style = MaterialTheme.typography.bodyMedium, color = c.textFaint)
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Rounded.Search, contentDescription = null, tint = c.textFaint, modifier = Modifier.size(17.dp))
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = c.textPrimary,
-                        unfocusedTextColor = c.textPrimary,
-                        focusedBorderColor = c.gold,
-                        unfocusedBorderColor = c.hairline,
-                        cursorColor = c.gold,
-                        focusedContainerColor = c.surface,
-                        unfocusedContainerColor = c.surface,
-                    ),
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                Row(modifier = Modifier.fillMaxWidth()) {
+                // Category grid
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "SUGGESTED CATEGORIES",
-                        style = AppType.groupLabel,
+                        text = "SUGGESTED",
+                        style = AppType.groupLabel.copy(letterSpacing = 0.9.sp, fontSize = 10.5.sp),
                         color = c.textMuted,
                         modifier = Modifier.weight(1f),
                     )
-                    Text(text = "TAP TO ASSIGN", style = AppType.groupLabel, color = c.gold)
+                    Text(
+                        text = "tap to assign",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                        color = c.gold.copy(alpha = 0.8f),
+                    )
                 }
 
-                Spacer(Modifier.height(8.dp))
-
-                // Compact 2-column grid — shrinks when the rule/alias section grows.
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = false),
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    state = gridState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    userScrollEnabled = true,
                 ) {
                     items(categories) { category ->
                         val isSelected = category == selected
@@ -234,38 +258,29 @@ fun CategoryRulesSheet(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .height(52.dp)
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(if (isSelected) catColor.copy(alpha = 0.10f) else c.surface)
-                                .border(
-                                    1.dp,
-                                    if (isSelected) catColor.copy(alpha = 0.45f) else c.hairline,
-                                    RoundedCornerShape(14.dp),
+                                .background(
+                                    if (isSelected) catColor.copy(alpha = 0.10f)
+                                    else Color.White.copy(alpha = 0.03f)
                                 )
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
                                 ) { selected = category }
-                                .padding(horizontal = 10.dp, vertical = 9.dp),
+                                .padding(horizontal = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(catColor.copy(alpha = 0.15f)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    imageVector = categoryIcon(category),
-                                    contentDescription = null,
-                                    tint = catColor,
-                                    modifier = Modifier.size(17.dp),
-                                )
-                            }
-                            Spacer(Modifier.width(8.dp))
+                            Icon(
+                                imageVector = categoryIcon(category),
+                                contentDescription = null,
+                                tint = catColor,
+                                modifier = Modifier.size(17.dp),
+                            )
+                            Spacer(Modifier.width(9.dp))
                             Text(
                                 text = category.displayName,
-                                style = MaterialTheme.typography.labelMedium,
+                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
                                 color = if (isSelected) c.textPrimary else c.textSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -283,67 +298,60 @@ fun CategoryRulesSheet(
                     }
                 }
 
-                Spacer(Modifier.height(10.dp))
-
-                // Smart Merchant Rule
+                // Smart merchant rule
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(18.dp))
-                        .background(c.surface)
-                        .border(1.dp, c.hairline, RoundedCornerShape(18.dp))
-                        .padding(12.dp),
+                        .background(Color.White.copy(alpha = 0.03f))
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Rounded.AutoAwesome,
                             contentDescription = null,
                             tint = c.gold,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(15.dp),
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(7.dp))
                         Text(
                             text = "Smart Merchant Rule",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
                             color = c.textPrimary,
                             modifier = Modifier.weight(1f),
                         )
-                        Switch(checked = ruleOn, onCheckedChange = { ruleOn = it })
+                        WarmToggle(checked = ruleOn, onCheckedChange = { ruleOn = it })
                     }
-                    Spacer(Modifier.height(3.dp))
                     Text(
-                        text = "Always categorize \"${merchant.take(18)}\" as ${selected.displayName}",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "Always categorize \"${merchant.take(20)}\" as ${selected.displayName}",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp),
                         color = c.textSecondary,
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(c.hairline.copy(alpha = 0.6f)),
-                    )
-                    Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "Applies automatically to future bank SMS & card alerts",
+                        text = "Applies to future bank SMS & card alerts",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                         color = c.textFaint,
                     )
-                    Spacer(Modifier.height(8.dp))
+
+                    // Alias row
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(c.cardRaised.copy(alpha = 0.6f))
-                            .border(1.dp, c.hairline, RoundedCornerShape(10.dp))
-                            .padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black.copy(alpha = 0.22f))
+                            .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Alias:", style = MaterialTheme.typography.labelSmall, color = c.textFaint)
-                        Spacer(Modifier.width(6.dp))
                         Text(
-                            text = alias.ifBlank { "None" },
-                            style = MaterialTheme.typography.labelLarge,
+                            text = "Alias",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            color = c.textFaint,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = alias.ifBlank { "Not set" },
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
                             color = if (alias.isBlank()) c.textFaint else c.goldSoft,
                             modifier = Modifier.weight(1f),
                             maxLines = 1,
@@ -351,10 +359,9 @@ fun CategoryRulesSheet(
                         )
                         Box(
                             modifier = Modifier
-                                .size(26.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(c.gold.copy(alpha = 0.1f))
-                                .border(1.dp, c.gold.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                .size(30.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(c.gold.copy(alpha = 0.10f))
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
@@ -369,32 +376,57 @@ fun CategoryRulesSheet(
                             )
                         }
                     }
+
                     if (editingAlias) {
-                        Spacer(Modifier.height(6.dp))
-                        OutlinedTextField(
-                            value = alias,
-                            onValueChange = { alias = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Display name for this merchant", color = c.textFaint) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = c.textPrimary,
-                                unfocusedTextColor = c.textPrimary,
-                                focusedBorderColor = c.gold,
-                                unfocusedBorderColor = c.hairline,
-                                cursorColor = c.gold,
-                            ),
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(c.surface)
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                                if (alias.isEmpty()) {
+                                    Text(
+                                        text = "Clean merchant name",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+                                        color = c.textFaint,
+                                    )
+                                }
+                                BasicTextField(
+                                    value = alias,
+                                    onValueChange = { alias = it },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 13.5.sp, color = c.textPrimary),
+                                    cursorBrush = SolidColor(c.gold),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            if (alias.isNotEmpty()) {
+                                Icon(
+                                    Icons.Rounded.Close,
+                                    contentDescription = "Clear alias",
+                                    tint = c.textMuted,
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null,
+                                        ) { alias = "" },
+                                )
+                            }
+                        }
                     }
                 }
+                }
 
-                Spacer(Modifier.height(10.dp))
-
+                // Primary action
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(46.dp)
+                        .height(56.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(c.gold)
                         .clickable(
@@ -405,45 +437,43 @@ fun CategoryRulesSheet(
                 ) {
                     Text(
                         text = "APPLY & UPDATE RULE",
-                        style = AppType.groupLabel.copy(letterSpacing = 1.0.sp),
+                        style = AppType.groupLabel.copy(
+                            letterSpacing = 1.0.sp,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
                         color = Color(0xFF14120E),
-                        fontWeight = FontWeight.SemiBold,
                     )
                 }
 
-                Spacer(Modifier.height(6.dp))
-
-                Box(
+                Text(
+                    text = "Cancel",
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 14.sp),
+                    color = c.textMuted,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(1.dp, c.hairline, RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = onDismiss,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("Cancel", style = MaterialTheme.typography.labelLarge, color = c.textSecondary)
-                }
-
-                Spacer(Modifier.height(4.dp))
+                        )
+                        .padding(vertical = 10.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun Switch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun WarmToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val c = AppTheme.colors
     Box(
         modifier = Modifier
-            .size(width = 44.dp, height = 24.dp)
+            .size(width = 46.dp, height = 26.dp)
             .clip(CircleShape)
-            .background(if (checked) c.gold else c.cardRaised)
-            .border(1.dp, if (checked) c.gold else c.hairline, CircleShape)
+            .background(if (checked) c.gold else c.surface)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -454,7 +484,7 @@ private fun Switch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     ) {
         Box(
             modifier = Modifier
-                .size(18.dp)
+                .size(20.dp)
                 .clip(CircleShape)
                 .background(if (checked) c.canvas else c.textFaint),
         )
