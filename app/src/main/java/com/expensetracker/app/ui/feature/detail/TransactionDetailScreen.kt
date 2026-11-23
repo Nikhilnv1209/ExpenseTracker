@@ -34,6 +34,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.EditNote
@@ -226,6 +227,7 @@ fun TransactionDetailScreen(
                     onEditNote = { editing = EditTarget.NOTE },
                     onReminder = { view = View.REMINDER },
                     onToggleExcluded = { viewModel.toggleExcluded(txn.id, it) },
+                    onToggleCategoryExempt = { viewModel.setCategoryExempt(txn.id, txn.title, it) },
                     onDelete = { showDeleteConfirm = true },
                     onClose = onBack,
                     onSave = onBack,
@@ -263,7 +265,7 @@ fun TransactionDetailScreen(
         val current = when (target) {
             EditTarget.TITLE -> txn.customTitle ?: ""
             EditTarget.ALIAS -> txn.alias ?: ""
-            EditTarget.NOTE -> txn.note ?: ""
+            EditTarget.NOTE -> txn.note?.takeIf { txn.noteIsManual } ?: ""
         }
         var text by remember(target) { mutableStateOf(current) }
         AlertDialog(
@@ -279,18 +281,31 @@ fun TransactionDetailScreen(
                 )
             },
             text = {
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = AppTheme.colors.textPrimary,
-                        unfocusedTextColor = AppTheme.colors.textPrimary,
-                        focusedBorderColor = AppTheme.colors.gold,
-                        unfocusedBorderColor = AppTheme.colors.hairline,
-                        cursorColor = AppTheme.colors.gold,
-                    ),
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = when (target) {
+                            EditTarget.TITLE -> "Only this transaction. Use Set Alias to rename every transaction with the parsed title."
+                            EditTarget.ALIAS -> "Applies to all past and future transactions with title \"${txn.title}\"."
+                            EditTarget.NOTE -> "A personal reason or note for this transaction."
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppTheme.colors.textMuted,
+                    )
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        singleLine = target != EditTarget.NOTE,
+                        minLines = if (target == EditTarget.NOTE) 3 else 1,
+                        maxLines = if (target == EditTarget.NOTE) 4 else 1,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = AppTheme.colors.textPrimary,
+                            unfocusedTextColor = AppTheme.colors.textPrimary,
+                            focusedBorderColor = AppTheme.colors.gold,
+                            unfocusedBorderColor = AppTheme.colors.hairline,
+                            cursorColor = AppTheme.colors.gold,
+                        ),
+                    )
+                }
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -325,6 +340,7 @@ private fun DetailBody(
     onEditNote: () -> Unit,
     onReminder: () -> Unit,
     onToggleExcluded: (Boolean) -> Unit,
+    onToggleCategoryExempt: (Boolean) -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
     onSave: () -> Unit,
@@ -457,6 +473,17 @@ private fun DetailBody(
                     value = txn.category.displayName,
                     onClick = onCategory,
                 )
+                if (categoryRule != null) {
+                    DetailDivider()
+                    DetailRow(
+                        icon = Icons.Rounded.Category,
+                        iconTint = if (txn.categoryExempt) c.gold else c.secondary,
+                        label = "Category rule",
+                        value = if (txn.categoryExempt) "Keeping own" else "Following rule",
+                        valueMuted = false,
+                        onClick = { onToggleCategoryExempt(!txn.categoryExempt) },
+                    )
+                }
                 DetailDivider()
                 DetailRow(
                     icon = Icons.Rounded.Storefront,
@@ -467,20 +494,27 @@ private fun DetailBody(
                     onClick = onEditAlias,
                 )
                 DetailDivider()
+                val manualNote = txn.note?.takeIf { txn.noteIsManual }
                 DetailRow(
                     icon = Icons.Rounded.EditNote,
                     iconTint = c.goldSoft,
                     label = "Note",
-                    value = txn.note ?: "Add a note",
-                    valueMuted = txn.note == null,
+                    value = manualNote ?: "Add a note",
+                    valueMuted = manualNote == null,
                     onClick = onEditNote,
                 )
                 DetailDivider()
+                val reminderLabel = when {
+                    reminder == null -> "None"
+                    reminder!!.customDate != null -> "On ${java.time.LocalDate.ofEpochDay(reminder!!.customDate).format(DateTimeFormatter.ofPattern("MMM d"))}"
+                    reminder!!.daysBefore == 0 -> "On payment day"
+                    else -> "${reminder!!.daysBefore}d before"
+                }
                 DetailRow(
                     icon = Icons.Rounded.NotificationsNone,
                     iconTint = c.textMuted,
                     label = "Reminder",
-                    value = reminder?.let { "On" } ?: "None",
+                    value = if (reminder != null) "$reminderLabel · %02d:%02d".format(reminder!!.hour, reminder!!.minute) else "None",
                     valueMuted = reminder == null,
                     onClick = onReminder,
                 )
@@ -499,12 +533,21 @@ private fun DetailBody(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        Icons.Rounded.VisibilityOff,
-                        contentDescription = null,
-                        tint = c.textMuted,
-                        modifier = Modifier.size(19.dp),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(c.textMuted.copy(alpha = 0.12f))
+                            .border(1.dp, c.textMuted.copy(alpha = 0.2f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Rounded.VisibilityOff,
+                            contentDescription = null,
+                            tint = c.textMuted,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
                     Spacer(Modifier.width(14.dp))
                     Text(
                         text = "Exclude from totals",
@@ -573,6 +616,28 @@ private fun DetailBody(
                         "Save",
                         style = MaterialTheme.typography.labelLarge,
                         color = Color(0xFF14120E),
+                    )
+                }
+            }
+
+            if (!txn.rawSms.isNullOrBlank()) {
+                Text(
+                    text = "Original SMS",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = c.textPrimary,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(c.card.copy(alpha = 0.55f))
+                        .border(1.dp, c.hairline, RoundedCornerShape(16.dp))
+                        .padding(14.dp),
+                ) {
+                    Text(
+                        text = txn.rawSms,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = c.textSecondary,
                     )
                 }
             }
