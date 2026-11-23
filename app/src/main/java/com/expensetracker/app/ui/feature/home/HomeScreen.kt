@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,6 +55,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -62,6 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -119,6 +123,7 @@ fun formatAmount(amount: Double, currency: Currency): String {
 }
 
 private val dayNumber = DateTimeFormatter.ofPattern("d")
+private val shortMonth = DateTimeFormatter.ofPattern("MMM")
 private val weekdayInitial = DateTimeFormatter.ofPattern("EEEEE")
 private val rowDate = DateTimeFormatter.ofPattern("d MMM")
 
@@ -224,6 +229,7 @@ fun HomeScreen(
                         item {
                             AnalyticsCard(
                                 uiState = uiState,
+                                currency = selectedCurrency,
                                 onMonthChanged = viewModel::setSelectedMonth,
                             )
                         }
@@ -616,10 +622,21 @@ private fun StatChip(
 @Composable
 private fun AnalyticsCard(
     uiState: HomeUiState,
+    currency: Currency,
     onMonthChanged: (YearMonth) -> Unit,
 ) {
     val c = AppTheme.colors
     var page by remember { mutableStateOf(0) }
+    var weekOffset by remember { mutableIntStateOf(0) }
+
+    fun shiftWeek(delta: Int) {
+        val next = (weekOffset + delta).coerceIn(0, 52)
+        if (next == weekOffset) return
+        weekOffset = next
+        val end = LocalDate.now().minusWeeks(next.toLong())
+        val monthOfEnd = YearMonth.from(end)
+        if (monthOfEnd != uiState.selectedMonth) onMonthChanged(monthOfEnd)
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -663,7 +680,12 @@ private fun AnalyticsCard(
             Spacer(Modifier.height(8.dp))
 
             when (page) {
-                0 -> TrendPage(uiState)
+                0 -> TrendPage(
+                    uiState = uiState,
+                    currency = currency,
+                    weekOffset = weekOffset,
+                    onShiftWeek = ::shiftWeek,
+                )
                 1 -> CategoryPage(uiState)
                 else -> BankPage(uiState)
             }
@@ -690,22 +712,96 @@ private fun MonthChevron(icon: ImageVector, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TrendPage(uiState: HomeUiState) {
-    val today = LocalDate.now()
-    val days = (6 downTo 0).map { today.minusDays(it.toLong()) }
+private fun TrendPage(
+    uiState: HomeUiState,
+    currency: Currency,
+    weekOffset: Int,
+    onShiftWeek: (Int) -> Unit,
+) {
+    val c = AppTheme.colors
+    val end = LocalDate.now().minusWeeks(weekOffset.toLong())
+    val days = (6 downTo 0).map { end.minusDays(it.toLong()) }
     val byEpoch = uiState.dailyExpenses.associateBy { it.epochDay }
 
     val values = days.map { day ->
         val entry = byEpoch[day.toEpochDay()]
+        val expense = entry?.total ?: 0.0
+        val income = entry?.income ?: 0.0
         when (uiState.balanceMode) {
-            1 -> entry?.income ?: 0.0
-            2 -> entry?.total ?: 0.0
-            else -> (entry?.total ?: 0.0) - (entry?.income ?: 0.0)
+            1 -> income
+            2 -> expense
+            else -> income - expense
         }
     }
     val labels = days.map { "${it.format(weekdayInitial)}|${it.format(dayNumber)}" }
 
-    TrendChart(values = values, labels = labels)
+    val rangeLabel = if (days.first().month == days.last().month) {
+        "${days.first().format(dayNumber)} – ${days.last().format(dayNumber)} ${days.last().format(shortMonth)}"
+    } else {
+        "${days.first().format(dayNumber)} ${days.first().format(shortMonth)} – ${days.last().format(dayNumber)} ${days.last().format(shortMonth)}"
+    }
+
+    var dragAccum by remember { mutableFloatStateOf(0f) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = if (weekOffset == 0) "Last 7 days" else rangeLabel,
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                color = c.textMuted,
+            )
+            Spacer(Modifier.weight(1f))
+            WeekChevron(
+                icon = Icons.Rounded.KeyboardArrowLeft,
+                onClick = { onShiftWeek(1) },
+            )
+            Spacer(Modifier.width(4.dp))
+            WeekChevron(
+                icon = Icons.Rounded.KeyboardArrowRight,
+                onClick = { onShiftWeek(-1) },
+                enabled = weekOffset > 0,
+            )        }
+
+        Spacer(Modifier.height(6.dp))
+
+        TrendChart(
+            values = values,
+            labels = labels,
+            valueTexts = values.map { formatAmount(it, currency) },
+            titleTexts = days.map { it.format(rowDate) },
+            onSwipeWeek = onShiftWeek,
+        )
+    }
+}
+
+@Composable
+private fun WeekChevron(icon: ImageVector, onClick: () -> Unit, enabled: Boolean = true) {
+    val c = AppTheme.colors
+    Box(
+        modifier = Modifier
+            .size(26.dp)
+            .clip(CircleShape)
+            .background(c.cardRaised.copy(alpha = if (enabled) 0.45f else 0.18f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = enabled,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (enabled) c.textFaint else c.textFaint.copy(alpha = 0.35f),
+            modifier = Modifier.size(15.dp),
+        )
+    }
 }
 
 @Composable
