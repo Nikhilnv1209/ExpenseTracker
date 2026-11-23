@@ -139,7 +139,12 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable("transactions") {
-                            TransactionListScreen(onBack = { navController.popBackStack() })
+                            TransactionListScreen(
+                                currency = selectedCurrency,
+                                onOpenTransaction = { id ->
+                                    navController.navigate("transaction_detail/$id")
+                                },
+                            )
                         }
                         composable("excluded") {
                             ExcludedTransactionsScreen(onBack = { navController.popBackStack() })
