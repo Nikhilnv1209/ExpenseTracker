@@ -407,8 +407,13 @@ private fun ActivityRow(
     onClick: () -> Unit,
 ) {
     val c = AppTheme.colors
-    val uncategorized = transaction.category == Category.OTHER
-    val catColor = if (uncategorized) Color(0xFFE8A598) else categoryColor(transaction.category)
+    // Income wins over category: a salary tagged "Other" is still green.
+    val uncategorized = transaction.category == Category.OTHER && !transaction.isIncome
+    val catColor = when {
+        transaction.isIncome -> c.income
+        uncategorized -> Color(0xFFE8A598)
+        else -> categoryColor(transaction.category)
+    }
 
     val meta = buildString {
         append(transaction.date.format(dayMonth))
@@ -439,8 +444,8 @@ private fun ActivityRow(
                 .size(44.dp)
                 .clip(CircleShape)
                 .background(
-                    if (uncategorized) Color(0xFF2A1D1A)
-                    else if (transaction.isIncome) Color(0xFF262D24)
+                    if (transaction.isIncome) Color(0xFF262D24)
+                    else if (uncategorized) Color(0xFF2A1D1A)
                     else c.gold.copy(alpha = 0.10f)
                 ),
             contentAlignment = Alignment.Center,
@@ -448,7 +453,7 @@ private fun ActivityRow(
             Icon(
                 imageVector = if (uncategorized) Icons.Rounded.HelpOutline else categoryIcon(transaction.category),
                 contentDescription = null,
-                tint = if (transaction.isIncome) Color(0xFF8FA882) else catColor,
+                tint = catColor,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -479,9 +484,9 @@ private fun ActivityRow(
             text = "${if (transaction.isIncome) "+" else "−"}${formatAmount(transaction.amount, currency)}",
             style = AppType.amount(14, FontWeight.SemiBold),
             color = when {
+                transaction.isIncome -> c.income
                 uncategorized -> Color(0xFFF4A89E)
-                transaction.isIncome -> Color(0xFF8FA882)
-                else -> c.textPrimary
+                else -> c.expense
             },
             maxLines = 1,
         )
