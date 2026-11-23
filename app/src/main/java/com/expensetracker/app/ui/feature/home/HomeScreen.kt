@@ -233,7 +233,7 @@ fun HomeScreen(
                                 onAgentClick = onOpenAgent,
                             )
                         }
-                        item { GreetingBlock() }
+                        item { GreetingBlock(uiState = uiState, currency = selectedCurrency) }
                         item {
                             BalanceCard(
                                 currency = selectedCurrency,
@@ -451,7 +451,7 @@ private fun CircleAction(icon: ImageVector, onClick: () -> Unit, tint: Color) {
 }
 
 @Composable
-private fun GreetingBlock() {
+private fun GreetingBlock(uiState: HomeUiState, currency: Currency) {
     val c = AppTheme.colors
     val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
     val greeting = when (hour) {
@@ -460,24 +460,64 @@ private fun GreetingBlock() {
         in 17..20 -> "Good evening"
         else -> "Good night"
     }
-    val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMM")) }
+    val today = remember { LocalDate.now() }
+    val todayLabel = remember { today.format(DateTimeFormatter.ofPattern("EEEE, d MMM")) }
 
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Dot(color = c.secondary, size = 6.dp)
-            Spacer(Modifier.width(6.dp))
+    val todayTotal = uiState.dailyExpenses
+        .firstOrNull { it.epochDay == today.toEpochDay() }
+        ?.total ?: 0.0
+    val todayCount = uiState.transactions.count { it.date == today }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Dot(color = c.secondary, size = 6.dp)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = todayLabel.uppercase(),
+                    style = AppType.eyebrow,
+                    color = c.textFaint,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
             Text(
-                text = today.uppercase(),
-                style = AppType.eyebrow,
+                text = greeting,
+                style = MaterialTheme.typography.headlineLarge,
+                color = c.textPrimary,
+            )
+        }
+
+        Column(horizontalAlignment = Alignment.End) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Dot(color = c.gold, size = 5.dp)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Today",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = c.textMuted,
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = formatAmount(todayTotal, currency),
+                    style = AppType.amount(12, FontWeight.SemiBold),
+                    color = c.gold,
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = when (todayCount) {
+                    0 -> "No activity"
+                    1 -> "1 transaction"
+                    else -> "$todayCount transactions"
+                },
+                style = MaterialTheme.typography.labelSmall,
                 color = c.textFaint,
             )
         }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = greeting,
-            style = MaterialTheme.typography.headlineLarge,
-            color = c.textPrimary,
-        )
     }
 }
 
@@ -518,6 +558,7 @@ private fun BalanceCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(start = 4.dp, end = 4.dp, top = 14.dp, bottom = 10.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -555,7 +596,7 @@ private fun BalanceCard(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
             Text(
                 text = formatAmount(amount, currency),
@@ -563,7 +604,7 @@ private fun BalanceCard(
                 color = amountColor,
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(18.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatChip(
