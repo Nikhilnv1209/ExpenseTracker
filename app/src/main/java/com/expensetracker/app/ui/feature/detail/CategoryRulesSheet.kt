@@ -35,6 +35,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import com.expensetracker.app.domain.model.Category
 import com.expensetracker.app.ui.feature.home.categoryColor
 import com.expensetracker.app.ui.feature.home.categoryIcon
+import com.expensetracker.app.ui.components.rememberSheetProgress
 import com.expensetracker.app.ui.theme.AppTheme
 import com.expensetracker.app.ui.theme.AppType
 
@@ -66,6 +69,7 @@ fun CategoryRulesSheet(
     currentAlias: String?,
     onDismiss: () -> Unit,
     onApply: (category: Category, createRule: Boolean, alias: String?) -> Unit,
+    visible: Boolean = true,
 ) {
     val c = AppTheme.colors
     var query by remember { mutableStateOf("") }
@@ -73,6 +77,19 @@ fun CategoryRulesSheet(
     var ruleOn by remember { mutableStateOf(currentRule != null) }
     var alias by remember { mutableStateOf(currentAlias ?: "") }
     var editingAlias by remember { mutableStateOf(false) }
+    val progress = rememberSheetProgress(visible)
+
+    LaunchedEffect(visible) {
+        if (visible) {
+            query = ""
+            selected = currentCategory
+            ruleOn = currentRule != null
+            alias = currentAlias ?: ""
+            editingAlias = false
+        }
+    }
+
+    if (progress <= 0f) return
 
     val categories = Category.entries.filter {
         query.isBlank() || it.displayName.contains(query, ignoreCase = true)
@@ -82,10 +99,11 @@ fun CategoryRulesSheet(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
+                .background(Color.Black.copy(alpha = 0.55f * progress))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
+                    enabled = visible,
                     onClick = onDismiss,
                 ),
         )
@@ -93,7 +111,10 @@ fun CategoryRulesSheet(
         BoxWithConstraints(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .graphicsLayer {
+                    translationY = (1f - progress) * 480.dp.toPx()
+                },
         ) {
             val maxSheetHeight = maxHeight * 0.78f
 

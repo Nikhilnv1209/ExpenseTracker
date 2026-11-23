@@ -31,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,11 +42,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.expensetracker.app.ui.components.rememberSheetProgress
 import com.expensetracker.app.ui.theme.AppTheme
 import com.expensetracker.app.ui.theme.AppType
 
@@ -60,21 +63,30 @@ fun MerchantAliasSheet(
     transactionCount: Int,
     onDismiss: () -> Unit,
     onApply: (String?) -> Unit,
+    visible: Boolean = true,
 ) {
     val c = AppTheme.colors
     var name by remember { mutableStateOf(currentAlias ?: "") }
     val hasAlias = currentAlias != null
     val suggestions = remember(merchant) { aliasSuggestions(merchant) }
     val empty = name.isBlank()
+    val progress = rememberSheetProgress(visible)
+
+    LaunchedEffect(visible) {
+        if (visible) name = currentAlias ?: ""
+    }
+
+    if (progress <= 0f) return
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.6f))
+                .background(Color.Black.copy(alpha = 0.6f * progress))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
+                    enabled = visible,
                     onClick = onDismiss,
                 ),
         )
@@ -84,6 +96,9 @@ fun MerchantAliasSheet(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .imePadding()
+                .graphicsLayer {
+                    translationY = (1f - progress) * 420.dp.toPx()
+                }
                 .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                 .background(c.cardRaised)
                 .border(

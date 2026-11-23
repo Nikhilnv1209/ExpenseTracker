@@ -104,6 +104,9 @@ fun TransactionDetailScreen(
     val c = AppTheme.colors
     val transaction by viewModel.observeTransaction(transactionId).collectAsState(initial = null)
     var overlay by remember { mutableStateOf(Overlay.NONE) }
+    var lastSheet by remember { mutableStateOf(Overlay.CATEGORY) }
+    if (overlay != Overlay.NONE) lastSheet = overlay
+    val sheetVisible = overlay != Overlay.NONE
 
     BackHandler { if (overlay != Overlay.NONE) overlay = Overlay.NONE else onBack() }
 
@@ -345,12 +348,14 @@ fun TransactionDetailScreen(
             }
         }
 
-        when (overlay) {
+        // Sheets stay mounted while closing so they can slide away.
+        when (lastSheet) {
             Overlay.CATEGORY -> CategoryRulesSheet(
                 merchant = txn.title,
                 currentCategory = txn.category,
                 currentRule = categoryRule,
                 currentAlias = txn.alias,
+                visible = sheetVisible,
                 onDismiss = { overlay = Overlay.NONE },
                 onApply = { category, createRule, alias ->
                     viewModel.setCategory(txn.id, txn.title, category, createRule)
@@ -363,6 +368,7 @@ fun TransactionDetailScreen(
                 merchant = txn.title,
                 currentAlias = txn.alias,
                 transactionCount = aliasCount,
+                visible = sheetVisible,
                 onDismiss = { overlay = Overlay.NONE },
                 onApply = { value ->
                     viewModel.setAlias(txn.id, txn.title, value)
@@ -370,7 +376,11 @@ fun TransactionDetailScreen(
                 },
             )
 
-            Overlay.REMINDER -> ReminderPanel(
+            else -> Unit
+        }
+
+        if (overlay == Overlay.REMINDER) {
+            ReminderPanel(
                 transaction = txn,
                 existingReminder = reminder,
                 onBack = { overlay = Overlay.NONE },
@@ -383,8 +393,6 @@ fun TransactionDetailScreen(
                     overlay = Overlay.NONE
                 },
             )
-
-            Overlay.NONE -> Unit
         }
     }
 }
