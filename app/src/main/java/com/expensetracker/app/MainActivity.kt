@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
                     var selectedCurrency by remember { mutableStateOf(currencies[1]) }
+                    var settingsSheetOpen by remember { mutableStateOf(false) }
                     val pendingId = pendingTransactionId.value
                     val backStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = backStackEntry?.destination?.route
@@ -127,6 +128,7 @@ class MainActivity : ComponentActivity() {
                         composable("settings") {
                             SettingsScreen(
                                 onBack = { navController.popBackStack() },
+                                onSheetOpenChange = { settingsSheetOpen = it },
                                 selectedCurrency = selectedCurrency,
                                 onSelectCurrency = { selectedCurrency = it },
                                 onViewExcluded = { navController.navigate("excluded") },
@@ -178,7 +180,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val tabRoutes = setOf("home", "transactions", "agent", "settings")
-                    if (currentRoute in tabRoutes) {
+                    if (currentRoute in tabRoutes && !settingsSheetOpen) {
                         AppBottomBar(
                             currentRoute = currentRoute,
                             onNavigate = { route ->
